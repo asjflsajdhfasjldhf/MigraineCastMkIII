@@ -117,6 +117,56 @@ export default function JournalPage() {
             console.error('Error fetching environmental data:', error);
           }
         }
+
+        // If stage is active and has medications, save them
+        if (data.stage === 'active' && data.medications && data.medications.length > 0) {
+          try {
+            for (const med of data.medications) {
+              if (med.name && med.taken_at) {
+                await fetch('/api/medication', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    event_id: newEvent.id,
+                    name: med.name,
+                    taken_at: convertTimeToISO(data.ended_at, med.taken_at),
+                    dose_mg: med.dose_mg,
+                    effectiveness: med.effectiveness,
+                  }),
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Error saving medications:', error);
+          }
+        }
+
+        // If stage is complete, save personal factors
+        if (data.stage === 'complete') {
+          try {
+            await fetch('/api/personal-factors', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event_id: newEvent.id,
+                sleep_hours: data.sleep_hours,
+                sleep_bedtime: data.sleep_bedtime,
+                sleep_waketime: data.sleep_waketime,
+                stress_level: data.stress_level,
+                alcohol_yesterday: data.alcohol_yesterday,
+                caffeine_withdrawal: data.caffeine_withdrawal,
+                meals_regular: data.meals_regular,
+                hydration: data.hydration,
+                sensory_overload: data.sensory_overload,
+                masking_intensity: data.masking_intensity,
+                social_exhaustion: data.social_exhaustion,
+                overstimulation: data.overstimulation,
+              }),
+            });
+          } catch (error) {
+            console.error('Error saving personal factors:', error);
+          }
+        }
       } else {
         // Update existing event
         const updated = await updateMigraineEvent(selectedEventId, data);
@@ -127,6 +177,56 @@ export default function JournalPage() {
             ...selectedEvent,
             event: updated,
           });
+        }
+
+        // Handle medications for active stage
+        if (data.stage === 'active' && data.medications && data.medications.length > 0) {
+          try {
+            for (const med of data.medications) {
+              if (med.name && med.taken_at) {
+                await fetch('/api/medication', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    event_id: selectedEventId,
+                    name: med.name,
+                    taken_at: convertTimeToISO(data.ended_at, med.taken_at),
+                    dose_mg: med.dose_mg,
+                    effectiveness: med.effectiveness,
+                  }),
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Error saving medications:', error);
+          }
+        }
+
+        // Handle personal factors for complete stage
+        if (data.stage === 'complete') {
+          try {
+            await fetch('/api/personal-factors', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event_id: selectedEventId,
+                sleep_hours: data.sleep_hours,
+                sleep_bedtime: data.sleep_bedtime,
+                sleep_waketime: data.sleep_waketime,
+                stress_level: data.stress_level,
+                alcohol_yesterday: data.alcohol_yesterday,
+                caffeine_withdrawal: data.caffeine_withdrawal,
+                meals_regular: data.meals_regular,
+                hydration: data.hydration,
+                sensory_overload: data.sensory_overload,
+                masking_intensity: data.masking_intensity,
+                social_exhaustion: data.social_exhaustion,
+                overstimulation: data.overstimulation,
+              }),
+            });
+          } catch (error) {
+            console.error('Error saving personal factors:', error);
+          }
         }
       }
 
@@ -232,4 +332,13 @@ function getSeason(date: Date): 'spring' | 'summer' | 'autumn' | 'winter' {
   if (month >= 5 && month <= 7) return 'summer';
   if (month >= 8 && month <= 10) return 'autumn';
   return 'winter';
+}
+
+function convertTimeToISO(dateString: string, timeString: string): string {
+  // dateString format: "2026-03-06T14:30" or ISO string
+  // timeString format: "14:30"
+  const date = new Date(dateString);
+  const [hours, minutes] = timeString.split(':').map(Number);
+  date.setHours(hours, minutes, 0, 0);
+  return date.toISOString();
 }

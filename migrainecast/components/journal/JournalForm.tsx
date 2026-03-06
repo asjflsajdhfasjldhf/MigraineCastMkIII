@@ -3,12 +3,19 @@
 
 import React, { useState } from 'react';
 import { MigraineEvent } from '@/types';
-import { SYMPTOM_OPTIONS, PRODROMAL_SYMPTOM_OPTIONS } from '@/lib/krii-config';
+import { SYMPTOM_OPTIONS, PRODROMAL_SYMPTOM_OPTIONS, MEDICATION_NAME_OPTIONS } from '@/lib/krii-config';
 
 interface JournalFormProps {
   event?: MigraineEvent | null;
   onSave: (data: any) => Promise<void>;
   isLoading?: boolean;
+}
+
+interface Medication {
+  name: string;
+  taken_at: string;
+  dose_mg?: number;
+  effectiveness?: number;
 }
 
 export const JournalForm: React.FC<JournalFormProps> = ({
@@ -34,12 +41,26 @@ export const JournalForm: React.FC<JournalFormProps> = ({
     event?.ended_at ? new Date(event.ended_at) : null
   );
   const [symptoms, setSymptoms] = useState(event?.symptoms || []);
+  const [medications, setMedications] = useState<Medication[]>([
+    { name: '', taken_at: '', dose_mg: undefined, effectiveness: undefined },
+  ]);
 
   // Stage 3 - Complete
   const [recoveryHours, setRecoveryHours] = useState(
     event?.recovery_hours || 24
   );
   const [sleepHours, setSleepHours] = useState(7.5);
+  const [sleepBedtime, setSleepBedtime] = useState('22:00');
+  const [sleepWaketime, setSleepWaketime] = useState('07:00');
+  const [mealsRegular, setMealsRegular] = useState(true);
+  const [hydration, setHydration] = useState(3);
+  const [alcoholYesterday, setAlcoholYesterday] = useState(false);
+  const [caffeineWithdrawal, setCaffeineWithdrawal] = useState(false);
+  const [stressLevel, setStressLevel] = useState(3);
+  const [sensoryOverload, setSensoryOverload] = useState(3);
+  const [maskingIntensity, setMaskingIntensity] = useState(3);
+  const [socialExhaustion, setSocialExhaustion] = useState(3);
+  const [overstimulation, setOverstimulation] = useState(3);
   const [notes, setNotes] = useState(event?.notes || '');
 
   const handleToggleSymptom = (symptom: string, isActive: boolean) => {
@@ -48,6 +69,35 @@ export const JournalForm: React.FC<JournalFormProps> = ({
     } else {
       setSymptoms(symptoms.filter((s) => s !== symptom));
     }
+  };
+
+  const handleToggleProdromalSymptom = (symptom: string, isActive: boolean) => {
+    if (isActive) {
+      setProdromalSymptoms([...prodromalSymptoms, symptom]);
+    } else {
+      setProdromalSymptoms(prodromalSymptoms.filter((s) => s !== symptom));
+    }
+  };
+
+  const handleAddMedication = () => {
+    setMedications([
+      ...medications,
+      { name: '', taken_at: '', dose_mg: undefined, effectiveness: undefined },
+    ]);
+  };
+
+  const handleRemoveMedication = (index: number) => {
+    setMedications(medications.filter((_, i) => i !== index));
+  };
+
+  const handleMedicationChange = (
+    index: number,
+    field: keyof Medication,
+    value: any
+  ) => {
+    const updated = [...medications];
+    updated[index] = { ...updated[index], [field]: value };
+    setMedications(updated);
   };
 
   const handleSaveStage = async () => {
@@ -65,11 +115,24 @@ export const JournalForm: React.FC<JournalFormProps> = ({
         data = {
           ended_at: endedAt?.toISOString() || null,
           symptoms,
+          medications: medications.filter((m) => m.name), // Only save non-empty medications
           stage: 'active',
         };
       } else {
         data = {
           recovery_hours: recoveryHours,
+          sleep_hours: sleepHours,
+          sleep_bedtime: sleepBedtime,
+          sleep_waketime: sleepWaketime,
+          meals_regular: mealsRegular,
+          hydration,
+          alcohol_yesterday: alcoholYesterday,
+          caffeine_withdrawal: caffeineWithdrawal,
+          stress_level: stressLevel,
+          sensory_overload: sensoryOverload,
+          masking_intensity: maskingIntensity,
+          social_exhaustion: socialExhaustion,
+          overstimulation,
           notes,
           stage: 'complete',
         };
@@ -188,12 +251,115 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Medications Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-3">
+              Medikamente
+            </label>
+            <div className="space-y-4">
+              {medications.map((med, idx) => (
+                <div
+                  key={idx}
+                  className="p-4 bg-slate-700 rounded border border-slate-600 space-y-3"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                        Name
+                      </label>
+                      <select
+                        value={med.name}
+                        onChange={(e) =>
+                          handleMedicationChange(idx, 'name', e.target.value)
+                        }
+                        className="w-full px-2 py-1 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                      >
+                        <option value="">Wählen...</option>
+                        {MEDICATION_NAME_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                        Uhrzeit
+                      </label>
+                      <input
+                        type="time"
+                        value={med.taken_at}
+                        onChange={(e) =>
+                          handleMedicationChange(idx, 'taken_at', e.target.value)
+                        }
+                        className="w-full px-2 py-1 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                        Dosis (mg)
+                      </label>
+                      <input
+                        type="number"
+                        value={med.dose_mg || ''}
+                        onChange={(e) =>
+                          handleMedicationChange(
+                            idx,
+                            'dose_mg',
+                            e.target.value ? parseInt(e.target.value) : undefined
+                          )
+                        }
+                        className="w-full px-2 py-1 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                        Wirksamkeit (1-5)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="5"
+                        value={med.effectiveness || ''}
+                        onChange={(e) =>
+                          handleMedicationChange(
+                            idx,
+                            'effectiveness',
+                            e.target.value ? parseInt(e.target.value) : undefined
+                          )
+                        }
+                        className="w-full px-2 py-1 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                      />
+                    </div>
+                  </div>
+                  {medications.length > 1 && (
+                    <button
+                      onClick={() => handleRemoveMedication(idx)}
+                      className="text-sm text-red-400 hover:text-red-300"
+                    >
+                      Entfernen
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={handleAddMedication}
+                className="px-3 py-2 rounded bg-slate-600 text-gray-300 hover:bg-slate-500 text-sm transition"
+              >
+                + Medikament hinzufügen
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Stage 3 - Complete */}
       {currentStage === 3 && (
         <div className="space-y-6">
+          {/* Recovery */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Genesungszeit (Stunden)
@@ -208,20 +374,172 @@ export const JournalForm: React.FC<JournalFormProps> = ({
             />
           </div>
 
+          {/* Sleep */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Schlafstunden
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                value={sleepHours}
+                onChange={(e) => setSleepHours(parseFloat(e.target.value))}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Schlafbeginn
+              </label>
+              <input
+                type="time"
+                value={sleepBedtime}
+                onChange={(e) => setSleepBedtime(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Aufwachzeit
+              </label>
+              <input
+                type="time"
+                value={sleepWaketime}
+                onChange={(e) => setSleepWaketime(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              />
+            </div>
+          </div>
+
+          {/* Meals & Hydration */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={mealsRegular}
+                  onChange={(e) => setMealsRegular(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Mahlzeiten regelmäßig
+              </label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Hydration: {hydration}/5
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="5"
+                value={hydration}
+                onChange={(e) => setHydration(parseInt(e.target.value))}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Lifestyle */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={alcoholYesterday}
+                onChange={(e) => setAlcoholYesterday(e.target.checked)}
+                className="w-4 h-4"
+              />
+              Alkohol gestern
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={caffeineWithdrawal}
+                onChange={(e) => setCaffeineWithdrawal(e.target.checked)}
+                className="w-4 h-4"
+              />
+              Koffeinentzug
+            </label>
+          </div>
+
+          {/* Stress */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Schlafstunden
+              Stresspegel: {stressLevel}/5
             </label>
             <input
-              type="number"
-              step="0.5"
-              min="0"
-              value={sleepHours}
-              onChange={(e) => setSleepHours(parseFloat(e.target.value))}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              type="range"
+              min="1"
+              max="5"
+              value={stressLevel}
+              onChange={(e) => setStressLevel(parseInt(e.target.value))}
+              className="w-full"
             />
           </div>
 
+          {/* Neurodiversity Block */}
+          <div className="bg-slate-700 rounded p-4 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-200">Neurodivergenz-Faktoren</h3>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Sensorische Überlastung: {sensoryOverload}/5
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="5"
+                value={sensoryOverload}
+                onChange={(e) => setSensoryOverload(parseInt(e.target.value))}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Masking-Intensität: {maskingIntensity}/5
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="5"
+                value={maskingIntensity}
+                onChange={(e) => setMaskingIntensity(parseInt(e.target.value))}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Soziale Erschöpfung: {socialExhaustion}/5
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="5"
+                value={socialExhaustion}
+                onChange={(e) => setSocialExhaustion(parseInt(e.target.value))}
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Reizoffenheit: {overstimulation}/5
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="5"
+                value={overstimulation}
+                onChange={(e) => setOverstimulation(parseInt(e.target.value))}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Notizen
