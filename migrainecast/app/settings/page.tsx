@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getUserSettings, updateUserSetting } from '@/lib/supabase';
 import { geocodeLocation } from '@/lib/weather';
-import { sendEmail } from '@/lib/email';
 import { UserSettings } from '@/types';
 import { KRII_CONFIG } from '@/lib/krii-config';
 
@@ -104,11 +103,21 @@ export default function SettingsPage() {
   const handleSendTestEmail = async () => {
     try {
       setSaving(true);
-      await sendEmail({
-        to: 'jbrylla@icloud.com',
-        subject: '✅ MigraineCast: Test-E-Mail',
-        html: '<p>Dies ist eine Test-E-Mail von MigraineCast.</p>',
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'test',
+          email: 'jbrylla@icloud.com',
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to send test email');
+      }
+
       setMessage({
         type: 'success',
         text: 'Test-E-Mail gesendet!',

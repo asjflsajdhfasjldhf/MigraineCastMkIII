@@ -14,14 +14,13 @@ import {
   getDailyForecast,
 } from '@/lib/weather';
 import {
-  calculateKRII,
   EnvironmentSnapshot,
   HourlyForecast,
   DailyForecast as DailyForecastType,
+  MigraineEvent,
 } from '@/types';
 import { calculateKRII as calculateKRIIValue } from '@/lib/krii';
 import { getUserSettings, getOpenMigraineEvents } from '@/lib/supabase';
-import { MigraineEvent } from '@/types';
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -310,19 +309,4 @@ function getSeason(date: Date): 'spring' | 'summer' | 'autumn' | 'winter' {
   if (month >= 5 && month <= 7) return 'summer';
   if (month >= 8 && month <= 10) return 'autumn';
   return 'winter';
-}
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
 }

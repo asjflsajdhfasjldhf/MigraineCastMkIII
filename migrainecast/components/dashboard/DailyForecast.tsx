@@ -2,10 +2,10 @@
 'use client';
 
 import React from 'react';
-import { DailyForecast } from '@/types';
+import { DailyForecast as DailyForecastType } from '@/types';
 
 interface DailyForecastProps {
-  data: DailyForecast[];
+  data: DailyForecastType[];
 }
 
 export const DailyForecast: React.FC<DailyForecastProps> = ({ data }) => {
