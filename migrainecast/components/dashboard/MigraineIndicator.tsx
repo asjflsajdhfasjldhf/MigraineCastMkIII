@@ -17,13 +17,13 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'low':
-        return 'from-green-500 to-green-600';
+        return 'var(--accent-low)';
       case 'medium':
-        return 'from-yellow-500 to-yellow-600';
+        return 'var(--accent-medium)';
       case 'high':
-        return 'from-red-500 to-red-600';
+        return 'var(--accent-high)';
       default:
-        return 'from-gray-500 to-gray-600';
+        return 'var(--accent-neutral)';
     }
   };
 
@@ -41,36 +41,53 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   };
 
   return (
-    <div className="w-full bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-white">KRII-Wert</h2>
-        <span className="text-3xl font-bold text-white">{percentage}%</span>
+    <div className="w-full glass-card p-6">
+      <div className="flex items-start justify-between mb-4">
+        <h2 className="text-xl font-semibold text-[var(--text-primary)]">KRII-Wert</h2>
+        <div
+          className="mono-value text-[72px] leading-[0.95] font-semibold"
+          style={{
+            color: getRiskColor(riskLevel),
+            textShadow: `0 0 28px color-mix(in oklab, ${getRiskColor(riskLevel)} 40%, transparent)`,
+          }}
+        >
+          {percentage}%
+        </div>
       </div>
+
+      <p className="text-sm mb-4" style={{ color: getRiskColor(riskLevel) }}>
+        {getRiskText(riskLevel)}
+      </p>
 
       {/* Progress bar */}
-      <div className="w-full bg-slate-700 rounded-full h-4 overflow-hidden mb-4">
+      <div className="w-full bg-white/10 rounded-full h-1 overflow-hidden mb-5">
         <div
-          className={`h-full bg-gradient-to-r ${getRiskColor(
-            riskLevel
-          )} transition-all duration-500`}
-          style={{ width: `${percentage}%` }}
+          className="h-full"
+          style={{
+            backgroundColor: getRiskColor(riskLevel),
+            width: `${percentage}%`,
+          }}
         />
       </div>
 
-      {/* Risk level badge */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-block w-3 h-3 rounded-full bg-gradient-to-r ${getRiskColor(
-            riskLevel
-          )}`}
-        />
-        <span className="text-sm font-medium text-gray-300">
-          {getRiskText(riskLevel)}
-        </span>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {[
+          ['●', 'Drucktrend'],
+          ['◐', 'Hydration'],
+          ['◍', 'Stress'],
+        ].map(([icon, label]) => (
+          <span
+            key={label}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-white/10 bg-white/5 text-[var(--text-secondary)]"
+          >
+            <span>{icon}</span>
+            <span>{label}</span>
+          </span>
+        ))}
       </div>
 
       {/* Interpretation text */}
-      <p className="text-xs text-gray-400 mt-4">
+      <p className="text-xs text-[var(--text-secondary)] mt-4">
         {percentage < 30 &&
           'Das Risiko ist derzeit niedrig. Genießen Sie den Tag!'}
         {percentage >= 30 && percentage < 60 &&

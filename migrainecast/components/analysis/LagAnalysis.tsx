@@ -20,13 +20,13 @@ export const LagAnalysis: React.FC<LagAnalysisProps> = ({ data }) => {
   );
 
   return (
-    <div className="w-full bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700">
-      <h2 className="text-xl font-semibold text-white mb-6">
+    <div className="w-full glass-card p-6">
+      <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">
         Druckwechsel-Analyse (Lag-Features)
       </h2>
 
       {data.length === 0 ? (
-        <p className="text-gray-400">Keine Daten verfügbar</p>
+        <p className="text-[var(--text-secondary)]">Keine Daten verfügbar</p>
       ) : (
         <div className="space-y-4">
           {data
@@ -34,20 +34,20 @@ export const LagAnalysis: React.FC<LagAnalysisProps> = ({ data }) => {
             .map((item) => (
               <div key={item.hourBefore}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-gray-300">
+                  <span className="text-sm text-[var(--text-primary)]">
                     {item.hourBefore}h vor Migränebeginn
                   </span>
-                  <span className="text-sm text-gray-400">
+                  <span className="text-sm text-[var(--text-secondary)] mono-value">
                     {item.hourBefore > 0 ? '−' : '+'}
                     {Math.abs(item.averagePressureChange).toFixed(1)} hPa
                   </span>
                 </div>
-                <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                   <div
                     className={`h-full transition-all duration-300 ${
                       item.averagePressureChange < 0
-                        ? 'bg-gradient-to-r from-red-500 to-red-600'
-                        : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                        ? 'bg-[var(--accent-high)]'
+                        : 'bg-[var(--accent-neutral)]'
                     }`}
                     style={{
                       width: `${(Math.abs(item.averagePressureChange) / maxChange) * 100}%`,
@@ -59,7 +59,7 @@ export const LagAnalysis: React.FC<LagAnalysisProps> = ({ data }) => {
         </div>
       )}
 
-      <p className="text-xs text-gray-400 mt-6">
+      <p className="text-xs text-[var(--text-secondary)] mt-6">
         Die stärksten Druckabfälle kurz vor Migränebeginn deuten auf kritische
         Trigger hin.
       </p>

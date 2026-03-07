@@ -34,10 +34,10 @@ export const JournalList: React.FC<JournalListProps> = ({
 
   const getStageBadge = (stage: string) => {
     const badgeClasses: { [key: string]: string } = {
-      onset: 'bg-yellow-900 text-yellow-200',
-      active: 'bg-orange-900 text-orange-200',
-      recovery: 'bg-blue-900 text-blue-200',
-      complete: 'bg-green-900 text-green-200',
+      onset: 'border border-[var(--accent-medium)] text-[var(--accent-medium)]',
+      active: 'border border-[var(--accent-high)] text-[var(--accent-high)]',
+      recovery: 'border border-[var(--accent-neutral)] text-[var(--accent-neutral)]',
+      complete: 'border border-[var(--accent-low)] text-[var(--accent-low)]',
     };
 
     const labels: { [key: string]: string } = {
@@ -57,8 +57,8 @@ export const JournalList: React.FC<JournalListProps> = ({
   return (
     <div className="w-full space-y-3">
       {events.length === 0 ? (
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 text-center">
-          <p className="text-gray-400">
+        <div className="glass-card p-6 text-center">
+          <p className="text-[var(--text-secondary)]">
             Noch keine Migräneereignisse erfasst.
           </p>
         </div>
@@ -67,15 +67,15 @@ export const JournalList: React.FC<JournalListProps> = ({
           <div
             key={event.id}
             onClick={() => onSelectEvent(event.id)}
-            className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-4 border border-slate-700 cursor-pointer hover:border-blue-500 transition"
+            className="glass-card p-4 cursor-pointer"
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   {formatDate(event.started_at)}
                 </p>
-                <p className="text-white font-medium mt-1">
-                  Schweregrad: <span className="text-lg">{event.severity}/10</span>
+                <p className="text-[var(--text-primary)] font-medium mt-1">
+                  Schweregrad: <span className="text-lg mono-value">{event.severity}/10</span>
                 </p>
               </div>
               {getStageBadge(event.stage)}
@@ -83,19 +83,19 @@ export const JournalList: React.FC<JournalListProps> = ({
 
             <div className="flex gap-4 text-sm">
               {getDurationHours(event.started_at, event.ended_at) && (
-                <span className="text-gray-400">
+                <span className="text-[var(--text-secondary)]">
                   Dauer: {getDurationHours(event.started_at, event.ended_at)}h
                 </span>
               )}
               {event.krii_value !== null && (
-                <span className="text-gray-400">
+                <span className="text-[var(--text-secondary)]">
                   KRII: {Math.round(event.krii_value * 100)}%
                 </span>
               )}
             </div>
 
             {event.notes && (
-              <p className="text-sm text-gray-400 mt-2 line-clamp-2">
+              <p className="text-sm text-[var(--text-secondary)] mt-2 line-clamp-2">
                 {event.notes}
               </p>
             )}

@@ -239,43 +239,43 @@ export default function JournalPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-slate-700 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Lädt Journal...</p>
+          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--text-secondary)]">Lädt Journal...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="app-shell">
       {/* Navigation */}
-      <nav className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700">
+      <nav className="app-nav">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">🧠 MigraineCast</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">🧠 MigraineCast</h1>
           <div className="flex gap-4">
             <Link
               href="/"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Dashboard
             </Link>
             <Link
               href="/journal"
-              className="px-4 py-2 rounded text-white hover:bg-slate-700 transition"
+              className="nav-link active"
             >
               Tagebuch
             </Link>
             <Link
               href="/analysis"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Analyse
             </Link>
             <Link
               href="/settings"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Einstellungen
             </Link>
@@ -297,7 +297,7 @@ export default function JournalPage() {
 
           {/* List */}
           <div>
-            <h2 className="text-xl font-semibold text-white mb-4">
+            <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
               Ereignisse
             </h2>
             <JournalList
@@ -310,7 +310,7 @@ export default function JournalPage() {
         {/* Event Details */}
         {selectedEvent && (
           <div className="mt-8">
-            <h2 className="text-2xl font-semibold text-white mb-6">
+            <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">
               Ereignisdetails
             </h2>
             <EventDetail

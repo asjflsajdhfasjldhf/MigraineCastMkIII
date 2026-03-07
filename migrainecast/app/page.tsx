@@ -204,43 +204,43 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-slate-700 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Lädt Dashboard...</p>
+          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--text-secondary)]">Lädt Dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="app-shell">
       {/* Navigation */}
-      <nav className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700">
+      <nav className="app-nav">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">🧠 MigraineCast</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">🧠 MigraineCast</h1>
           <div className="flex gap-4">
             <Link
               href="/"
-              className="px-4 py-2 rounded text-white hover:bg-slate-700 transition"
+              className="nav-link active"
             >
               Dashboard
             </Link>
             <Link
               href="/journal"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Tagebuch
             </Link>
             <Link
               href="/analysis"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Analyse
             </Link>
             <Link
               href="/settings"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Einstellungen
             </Link>
@@ -252,11 +252,11 @@ export default function DashboardPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Open Migraine Events Alert */}
         {openEvents.length > 0 && (
-          <div className="mb-6 bg-blue-900 border border-blue-700 rounded-lg p-4">
-            <p className="text-blue-200 font-medium">
+          <div className="mb-6 glass-card p-4">
+            <p className="text-[var(--text-primary)] font-medium">
               ℹ️ Sie haben {openEvents.length} offene Migräneereignis(se).
               Besuchen Sie das{' '}
-              <Link href="/journal" className="underline hover:opacity-80">
+              <Link href="/journal" className="underline text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                 Tagebuch
               </Link>
               , um diese zu aktualisieren.

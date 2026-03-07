@@ -149,8 +149,8 @@ export const JournalForm: React.FC<JournalFormProps> = ({
   };
 
   return (
-    <div className="w-full bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700">
-      <h2 className="text-xl font-semibold text-white mb-6">
+    <div className="w-full glass-card p-6">
+      <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-6">
         Migräne-Tagebuch
       </h2>
 
@@ -158,19 +158,19 @@ export const JournalForm: React.FC<JournalFormProps> = ({
       {currentStage === 1 && (
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
               Startzeit
             </label>
             <input
               type="datetime-local"
               value={startedAt.toISOString().slice(0, 16)}
               onChange={(e) => setStartedAt(new Date(e.target.value))}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              className="ui-input"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
               Schweregrad: {severity}/10
             </label>
             <input
@@ -179,12 +179,12 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               max="10"
               value={severity}
               onChange={(e) => setSeverity(parseInt(e.target.value))}
-              className="w-full"
+              className="ui-range"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-3">
               Prodromale Symptome
             </label>
             <div className="space-y-2">
@@ -203,9 +203,9 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                           : prodromalSymptoms.filter((s) => s !== symptom)
                       )
                     }
-                    className="w-4 h-4"
+                    className="ui-checkbox"
                   />
-                  <span className="text-gray-300 capitalize">{symptom}</span>
+                  <span className="text-[var(--text-primary)] capitalize">{symptom}</span>
                 </label>
               ))}
             </div>
@@ -217,19 +217,19 @@ export const JournalForm: React.FC<JournalFormProps> = ({
       {currentStage === 2 && (
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
               Endzeit
             </label>
             <input
               type="datetime-local"
               value={endedAt ? endedAt.toISOString().slice(0, 16) : ''}
               onChange={(e) => setEndedAt(new Date(e.target.value))}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              className="ui-input"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-3">
               Symptome während Migräne
             </label>
             <div className="space-y-2">
@@ -244,9 +244,9 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                     onChange={(e) =>
                       handleToggleSymptom(symptom, e.target.checked)
                     }
-                    className="w-4 h-4"
+                    className="ui-checkbox"
                   />
-                  <span className="text-gray-300 capitalize">{symptom}</span>
+                  <span className="text-[var(--text-primary)] capitalize">{symptom}</span>
                 </label>
               ))}
             </div>
@@ -254,18 +254,18 @@ export const JournalForm: React.FC<JournalFormProps> = ({
 
           {/* Medications Section */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-3">
               Medikamente
             </label>
             <div className="space-y-4">
               {medications.map((med, idx) => (
                 <div
                   key={idx}
-                  className="p-4 bg-slate-700 rounded border border-slate-600 space-y-3"
+                  className="p-4 rounded-xl border border-white/10 bg-white/[0.03] space-y-3"
                 >
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                         Name
                       </label>
                       <select
@@ -273,7 +273,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                         onChange={(e) =>
                           handleMedicationChange(idx, 'name', e.target.value)
                         }
-                        className="w-full px-2 py-1 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                        className="ui-select text-sm"
                       >
                         <option value="">Wählen...</option>
                         {MEDICATION_NAME_OPTIONS.map((opt) => (
@@ -284,7 +284,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                         Uhrzeit
                       </label>
                       <input
@@ -293,13 +293,13 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                         onChange={(e) =>
                           handleMedicationChange(idx, 'taken_at', e.target.value)
                         }
-                        className="w-full px-2 py-1 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                        className="ui-input text-sm"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                         Dosis (mg)
                       </label>
                       <input
@@ -312,11 +312,11 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                             e.target.value ? parseInt(e.target.value) : undefined
                           )
                         }
-                        className="w-full px-2 py-1 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                        className="ui-input text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                         Wirksamkeit (1-5)
                       </label>
                       <input
@@ -331,14 +331,14 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                             e.target.value ? parseInt(e.target.value) : undefined
                           )
                         }
-                        className="w-full px-2 py-1 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                        className="ui-input text-sm"
                       />
                     </div>
                   </div>
                   {medications.length > 1 && (
                     <button
                       onClick={() => handleRemoveMedication(idx)}
-                      className="text-sm text-red-400 hover:text-red-300"
+                      className="ui-button ui-button-danger text-sm"
                     >
                       Entfernen
                     </button>
@@ -347,7 +347,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               ))}
               <button
                 onClick={handleAddMedication}
-                className="px-3 py-2 rounded bg-slate-600 text-gray-300 hover:bg-slate-500 text-sm transition"
+                className="ui-button text-sm"
               >
                 + Medikament hinzufügen
               </button>
@@ -361,7 +361,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
         <div className="space-y-6">
           {/* Recovery */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
               Genesungszeit (Stunden)
             </label>
             <input
@@ -370,14 +370,14 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               min="0"
               value={recoveryHours}
               onChange={(e) => setRecoveryHours(parseFloat(e.target.value))}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              className="ui-input"
             />
           </div>
 
           {/* Sleep */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Schlafstunden
               </label>
               <input
@@ -386,29 +386,29 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                 min="0"
                 value={sleepHours}
                 onChange={(e) => setSleepHours(parseFloat(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                className="ui-input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Schlafbeginn
               </label>
               <input
                 type="time"
                 value={sleepBedtime}
                 onChange={(e) => setSleepBedtime(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                className="ui-input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Aufwachzeit
               </label>
               <input
                 type="time"
                 value={sleepWaketime}
                 onChange={(e) => setSleepWaketime(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                className="ui-input"
               />
             </div>
           </div>
@@ -416,18 +416,18 @@ export const JournalForm: React.FC<JournalFormProps> = ({
           {/* Meals & Hydration */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={mealsRegular}
                   onChange={(e) => setMealsRegular(e.target.checked)}
-                  className="w-4 h-4"
+                  className="ui-checkbox"
                 />
                 Mahlzeiten regelmäßig
               </label>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Hydration: {hydration}/5
               </label>
               <input
@@ -436,28 +436,28 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                 max="5"
                 value={hydration}
                 onChange={(e) => setHydration(parseInt(e.target.value))}
-                className="w-full"
+                className="ui-range"
               />
             </div>
           </div>
 
           {/* Lifestyle */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={alcoholYesterday}
                 onChange={(e) => setAlcoholYesterday(e.target.checked)}
-                className="w-4 h-4"
+                className="ui-checkbox"
               />
               Alkohol gestern
             </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={caffeineWithdrawal}
                 onChange={(e) => setCaffeineWithdrawal(e.target.checked)}
-                className="w-4 h-4"
+                className="ui-checkbox"
               />
               Koffeinentzug
             </label>
@@ -465,7 +465,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
 
           {/* Stress */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
               Stresspegel: {stressLevel}/5
             </label>
             <input
@@ -474,16 +474,16 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               max="5"
               value={stressLevel}
               onChange={(e) => setStressLevel(parseInt(e.target.value))}
-              className="w-full"
+              className="ui-range"
             />
           </div>
 
           {/* Neurodiversity Block */}
-          <div className="bg-slate-700 rounded p-4 space-y-4">
-            <h3 className="text-sm font-semibold text-gray-200">Neurodivergenz-Faktoren</h3>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Neurodivergenz-Faktoren</h3>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Sensorische Überlastung: {sensoryOverload}/5
               </label>
               <input
@@ -492,12 +492,12 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                 max="5"
                 value={sensoryOverload}
                 onChange={(e) => setSensoryOverload(parseInt(e.target.value))}
-                className="w-full"
+                className="ui-range"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Masking-Intensität: {maskingIntensity}/5
               </label>
               <input
@@ -506,12 +506,12 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                 max="5"
                 value={maskingIntensity}
                 onChange={(e) => setMaskingIntensity(parseInt(e.target.value))}
-                className="w-full"
+                className="ui-range"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Soziale Erschöpfung: {socialExhaustion}/5
               </label>
               <input
@@ -520,12 +520,12 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                 max="5"
                 value={socialExhaustion}
                 onChange={(e) => setSocialExhaustion(parseInt(e.target.value))}
-                className="w-full"
+                className="ui-range"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Reizoffenheit: {overstimulation}/5
               </label>
               <input
@@ -534,21 +534,21 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                 max="5"
                 value={overstimulation}
                 onChange={(e) => setOverstimulation(parseInt(e.target.value))}
-                className="w-full"
+                className="ui-range"
               />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
               Notizen
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+              className="ui-textarea"
               placeholder="Zusätzliche Informationen..."
             />
           </div>
@@ -560,7 +560,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
         {currentStage > 1 && (
           <button
             onClick={() => setCurrentStage((currentStage - 1) as any)}
-            className="px-4 py-2 rounded bg-slate-700 text-white hover:bg-slate-600 transition"
+            className="ui-button"
           >
             Zurück
           </button>
@@ -568,7 +568,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
         <button
           onClick={handleSaveStage}
           disabled={isLoading}
-          className="flex-1 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-600 transition"
+          className="flex-1 ui-button disabled:opacity-50"
         >
           {isLoading ? 'Speichern...' : currentStage === 3 ? 'Abschließen' : 'Weiter'}
         </button>
@@ -580,7 +580,7 @@ export const JournalForm: React.FC<JournalFormProps> = ({
           <div
             key={stage}
             className={`flex-1 h-1 rounded ${
-              stage <= currentStage ? 'bg-blue-600' : 'bg-slate-700'
+              stage <= currentStage ? 'bg-white' : 'bg-[var(--text-muted)]'
             }`}
           />
         ))}

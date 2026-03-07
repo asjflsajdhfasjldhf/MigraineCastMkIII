@@ -19,25 +19,26 @@ export const RiskAlert: React.FC<RiskAlertProps> = ({
   if (!show) return null;
 
   return (
-    <div className="w-full bg-gradient-to-r from-red-900 to-red-800 rounded-lg p-4 border border-red-700 mb-6">
+    <div className="w-full glass-card rounded-2xl p-4 border mb-6" style={{ borderColor: 'var(--accent-high)' }}>
       <div className="flex items-start gap-3">
         <span className="text-2xl">⚠️</span>
         <div className="flex-1">
-          <h3 className="font-semibold text-white mb-1">Hohes Risiko erkannt</h3>
-          <p className="text-sm text-red-100 mb-2">
+          <h3 className="font-semibold text-[var(--text-primary)] mb-1">Hohes Risiko erkannt</h3>
+          <p className="text-sm text-[var(--text-secondary)] mb-2">
             Höchstes Risiko heute um{' '}
-            <span className="font-bold">{peakTime}</span> mit{' '}
-            <span className="font-bold">{peakPercentage}%</span> KRII-Wert
+            <span className="font-bold text-[var(--text-primary)] mono-value">{peakTime}</span> mit{' '}
+            <span className="font-bold mono-value" style={{ color: 'var(--accent-high)' }}>{peakPercentage}%</span> KRII-Wert
           </p>
 
           {triggers.length > 0 && (
-            <div className="text-sm text-red-100">
+            <div className="text-sm text-[var(--text-secondary)]">
               <p className="font-medium mb-1">Hauptauslöser:</p>
               <div className="flex flex-wrap gap-1">
                 {triggers.map((trigger, idx) => (
                   <span
                     key={idx}
-                    className="bg-red-700 px-2 py-1 rounded text-xs"
+                    className="px-2 py-1 rounded-full text-xs border"
+                    style={{ borderColor: 'var(--accent-high)', color: 'var(--accent-high)' }}
                   >
                     {trigger}
                   </span>

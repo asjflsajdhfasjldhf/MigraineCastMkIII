@@ -135,43 +135,43 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-slate-700 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Lädt Einstellungen...</p>
+          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[var(--text-secondary)]">Lädt Einstellungen...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="app-shell">
       {/* Navigation */}
-      <nav className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700">
+      <nav className="app-nav">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">🧠 MigraineCast</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">🧠 MigraineCast</h1>
           <div className="flex gap-4">
             <Link
               href="/"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Dashboard
             </Link>
             <Link
               href="/journal"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Tagebuch
             </Link>
             <Link
               href="/analysis"
-              className="px-4 py-2 rounded text-gray-400 hover:text-white transition"
+              className="nav-link"
             >
               Analyse
             </Link>
             <Link
               href="/settings"
-              className="px-4 py-2 rounded text-white hover:bg-slate-700 transition"
+              className="nav-link active"
             >
               Einstellungen
             </Link>
@@ -184,10 +184,10 @@ export default function SettingsPage() {
         {/* Messages */}
         {message && (
           <div
-            className={`mb-6 p-4 rounded-lg ${
+            className={`mb-6 p-4 rounded-2xl border ${
               message.type === 'success'
-                ? 'bg-green-900 border border-green-700 text-green-200'
-                : 'bg-red-900 border border-red-700 text-red-200'
+                ? 'bg-white/[0.04] border-[var(--accent-low)] text-[var(--text-primary)]'
+                : 'bg-white/[0.04] border-[var(--accent-high)] text-[var(--text-primary)]'
             }`}
           >
             {message.text}
@@ -197,14 +197,14 @@ export default function SettingsPage() {
         {/* Location Settings */}
         {settings && (
           <>
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700 mb-6">
+            <div className="glass-card p-6 mb-6">
               <h2 className="text-xl font-semibold text-white mb-4">
                 Standort
               </h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                     Standort suchen
                   </label>
                   <div className="flex gap-2">
@@ -222,7 +222,7 @@ export default function SettingsPage() {
                           (e.target as HTMLInputElement).value = '';
                         }
                       }}
-                      className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                      className="ui-input flex-1"
                     />
                     <button
                       onClick={() => {
@@ -235,7 +235,7 @@ export default function SettingsPage() {
                         }
                       }}
                       disabled={locationSearching || saving}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-600 transition"
+                      className="ui-button px-4 py-2 disabled:opacity-50"
                     >
                       {locationSearching ? 'Sucht...' : 'Suchen'}
                     </button>
@@ -243,11 +243,11 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-400 mb-1">Aktueller Standort</p>
+                  <p className="text-sm text-[var(--text-secondary)] mb-1">Aktueller Standort</p>
                   <p className="text-white font-medium">
                     {settings.location_name}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-[var(--text-secondary)]">
                     ({settings.location_lat}, {settings.location_lon})
                   </p>
                 </div>
@@ -255,12 +255,12 @@ export default function SettingsPage() {
             </div>
 
             {/* Sleep Settings */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700 mb-6">
+            <div className="glass-card p-6 mb-6">
               <h2 className="text-xl font-semibold text-white mb-4">Schlaf</h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                     Standard-Schlafstunden
                   </label>
                   <input
@@ -273,15 +273,15 @@ export default function SettingsPage() {
                         e.target.value
                       );
                     }}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                    className="ui-input"
                   />
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
                     Wird für die Abweichungsberechnung verwendet
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                     Chronotyp
                   </label>
                   <select
@@ -289,7 +289,7 @@ export default function SettingsPage() {
                     onChange={(e) => {
                       handleSettingChange('chronotype', e.target.value);
                     }}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+                    className="ui-select"
                   >
                     <option value="early">Frühaufsteher</option>
                     <option value="normal">Normal</option>
@@ -300,7 +300,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Email Settings */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700 mb-6">
+            <div className="glass-card p-6 mb-6">
               <h2 className="text-xl font-semibold text-white mb-4">
                 E-Mail-Benachrichtigungen
               </h2>
@@ -317,23 +317,23 @@ export default function SettingsPage() {
                           e.target.checked ? 'true' : 'false'
                         );
                       }}
-                      className="w-4 h-4"
+                      className="ui-checkbox"
                     />
-                    <span className="text-gray-300">
+                    <span className="text-[var(--text-primary)]">
                       Tägliche Risiko-Warnungen aktivieren
                     </span>
                   </label>
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-400 mb-2">E-Mail-Adresse</p>
-                  <p className="text-white font-monospace">jbrylla@icloud.com</p>
+                  <p className="text-sm text-[var(--text-secondary)] mb-2">E-Mail-Adresse</p>
+                  <p className="text-white mono-value">jbrylla@icloud.com</p>
                 </div>
 
                 <button
                   onClick={handleSendTestEmail}
                   disabled={saving}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-600 transition"
+                  className="ui-button w-full disabled:opacity-50"
                 >
                   {saving ? 'Sende...' : 'Test-E-Mail senden'}
                 </button>
@@ -341,12 +341,12 @@ export default function SettingsPage() {
             </div>
 
             {/* KRII Configuration */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700">
+            <div className="glass-card p-6">
               <h2 className="text-xl font-semibold text-white mb-4">
                 KRII-Konfiguration
               </h2>
 
-              <div className="text-sm text-gray-400 space-y-3">
+              <div className="text-sm text-[var(--text-secondary)] space-y-3">
                 <div>
                   <p className="font-medium text-white mb-2">Gewichtungen</p>
                   <div className="pl-4 space-y-2">
@@ -377,7 +377,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <p className="text-xs text-gray-500 pt-2 border-t border-slate-600">
+                <p className="text-xs text-[var(--text-muted)] pt-2 border-t border-white/10">
                   Diese Konfiguration wird während der App-Nutzung durch
                   ML-Ergebnisse optimiert.
                 </p>

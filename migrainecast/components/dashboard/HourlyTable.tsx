@@ -10,23 +10,23 @@ interface HourlyTableProps {
 
 export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
   return (
-    <div className="w-full bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-6 border border-slate-700 overflow-x-auto">
-      <h2 className="text-xl font-semibold text-white mb-4">
+    <div className="w-full glass-card p-6 overflow-x-auto">
+      <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
         72-Stunden-Vorschau
       </h2>
 
       {data.length === 0 ? (
-        <p className="text-gray-400">Keine Daten verfügbar</p>
+        <p className="text-[var(--text-secondary)]">Keine Daten verfügbar</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-600">
-              <th className="text-left py-2 px-2 text-gray-300">Uhrzeit</th>
-              <th className="text-right py-2 px-2 text-gray-300">KRII</th>
-              <th className="text-right py-2 px-2 text-gray-300">Temp °C</th>
-              <th className="text-right py-2 px-2 text-gray-300">Druck hPa</th>
-              <th className="text-right py-2 px-2 text-gray-300">Feucht %</th>
-              <th className="text-right py-2 px-2 text-gray-300">PM2.5</th>
+            <tr className="border-b border-white/10">
+              <th className="text-left py-2 px-2 text-[var(--text-secondary)]">Uhrzeit</th>
+              <th className="text-right py-2 px-2 text-[var(--text-secondary)]">KRII</th>
+              <th className="text-right py-2 px-2 text-[var(--text-secondary)]">Temp °C</th>
+              <th className="text-right py-2 px-2 text-[var(--text-secondary)]">Druck hPa</th>
+              <th className="text-right py-2 px-2 text-[var(--text-secondary)]">Feucht %</th>
+              <th className="text-right py-2 px-2 text-[var(--text-secondary)]">PM2.5</th>
             </tr>
           </thead>
           <tbody>
@@ -39,30 +39,36 @@ export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
 
               const riskColor =
                 hour.krii_level === 'high'
-                  ? 'text-red-400'
+                  ? 'text-[var(--accent-high)]'
                   : hour.krii_level === 'medium'
-                    ? 'text-yellow-400'
-                    : 'text-green-400';
+                    ? 'text-[var(--accent-medium)]'
+                    : 'text-[var(--accent-low)]';
 
               return (
                 <tr
                   key={idx}
-                  className="border-b border-slate-700 hover:bg-slate-700 transition-colors"
+                  className="border-b border-white/8 hover:bg-white/5"
+                  style={{
+                    boxShadow:
+                      hour.krii_value > 0.6
+                        ? 'inset 2px 0 0 0 rgba(248, 113, 113, 0.65)'
+                        : undefined,
+                  }}
                 >
-                  <td className="py-2 px-2 text-gray-300">{timeStr}</td>
-                  <td className={`py-2 px-2 text-right font-semibold ${riskColor}`}>
+                  <td className="py-2 px-2 text-[var(--text-primary)]">{timeStr}</td>
+                  <td className={`py-2 px-2 text-right font-semibold mono-value ${riskColor}`}>
                     {Math.round(hour.krii_value * 100)}%
                   </td>
-                  <td className="py-2 px-2 text-right text-gray-300">
+                  <td className="py-2 px-2 text-right text-[var(--text-secondary)]">
                     {hour.temperature.toFixed(1)}
                   </td>
-                  <td className="py-2 px-2 text-right text-gray-300">
+                  <td className="py-2 px-2 text-right text-[var(--text-secondary)]">
                     {hour.pressure.toFixed(0)}
                   </td>
-                  <td className="py-2 px-2 text-right text-gray-300">
+                  <td className="py-2 px-2 text-right text-[var(--text-secondary)]">
                     {hour.humidity}
                   </td>
-                  <td className="py-2 px-2 text-right text-gray-300">
+                  <td className="py-2 px-2 text-right text-[var(--text-secondary)]">
                     {hour.pm25 !== null ? hour.pm25.toFixed(1) : '—'}
                   </td>
                 </tr>
