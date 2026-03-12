@@ -35,6 +35,11 @@ export default function HistoryPage() {
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [visibleMonthDate, setVisibleMonthDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -46,11 +51,12 @@ export default function HistoryPage() {
 
         setEvents(fetchedEvents);
         setUserLocation(settings.location_name || 'Berlin');
+        setErrorMessage(null);
 
         if (fetchedEvents.length > 0) {
           const eventIds = fetchedEvents.map((event) => event.id);
 
-          const [{ data: envData }, { data: medsData }, { data: personalData }] = await Promise.all([
+          const [envResult, medsResult, personalResult] = await Promise.all([
             supabase
               .from('environment_snapshots')
               .select('event_id, pressure_trend, pressure_change_6h, temp_change_6h, air_quality_pm25')
@@ -65,12 +71,23 @@ export default function HistoryPage() {
               .in('event_id', eventIds),
           ]);
 
-          setEnvRows((envData || []) as EnvRow[]);
-          setMedRows((medsData || []) as MedicationRow[]);
-          setPersonalRows((personalData || []) as PersonalRow[]);
+          if (envResult.error) {
+            console.error('Error loading environment_snapshots for history:', envResult.error);
+          }
+          if (medsResult.error) {
+            console.error('Error loading medications for history:', medsResult.error);
+          }
+          if (personalResult.error) {
+            console.error('Error loading personal_factors for history:', personalResult.error);
+          }
+
+          setEnvRows((envResult.data || []) as EnvRow[]);
+          setMedRows((medsResult.data || []) as MedicationRow[]);
+          setPersonalRows((personalResult.data || []) as PersonalRow[]);
         }
       } catch (error) {
         console.error('Error loading history page:', error);
+        setErrorMessage('Verlaufsdaten konnten nicht geladen werden.');
       } finally {
         setLoading(false);
       }
@@ -218,9 +235,8 @@ export default function HistoryPage() {
   }, [personalRows]);
 
   const calendarData = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const year = visibleMonthDate.getFullYear();
+    const month = visibleMonthDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
@@ -258,16 +274,41 @@ export default function HistoryPage() {
     return {
       year,
       month,
-      monthLabel: now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }),
+      monthLabel: visibleMonthDate.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }),
       cells,
       byDate,
     };
-  }, [completeEvents]);
+  }, [completeEvents, visibleMonthDate]);
+
+  const canGoNextMonth = useMemo(() => {
+    const now = new Date();
+    return (
+      visibleMonthDate.getFullYear() < now.getFullYear() ||
+      (visibleMonthDate.getFullYear() === now.getFullYear() && visibleMonthDate.getMonth() < now.getMonth())
+    );
+  }, [visibleMonthDate]);
 
   const selectedEntries = useMemo(() => {
     if (!selectedDate) return [] as MigraineEvent[];
     return calendarData.byDate.get(selectedDate) || [];
   }, [selectedDate, calendarData]);
+
+  const hasEnvironmentData = envRows.length > 0;
+
+  const monthlySeveritySeries = useMemo(() => {
+    const grouped = new Map<string, { sum: number; count: number }>();
+
+    completeEvents.forEach((event) => {
+      const d = new Date(event.started_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const current = grouped.get(key) || { sum: 0, count: 0 };
+      grouped.set(key, { sum: current.sum + event.severity, count: current.count + 1 });
+    });
+
+    return Array.from(grouped.entries())
+      .map(([month, value]) => ({ month, avg: value.sum / value.count }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  }, [completeEvents]);
 
   if (loading) {
     return (
@@ -282,6 +323,12 @@ export default function HistoryPage() {
       <Navigation showLocationPin={true} locationName={userLocation} />
 
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8 space-y-6">
+        {errorMessage && (
+          <section className="glass-card p-4 border border-[var(--accent-high)]">
+            <p className="text-sm text-[var(--text-primary)]">{errorMessage}</p>
+          </section>
+        )}
+
         <section className="glass-card p-6">
           <h2 className="text-xl font-medium mb-4">Schnellstatistiken</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -298,7 +345,7 @@ export default function HistoryPage() {
               <p className="text-2xl font-medium">{monthlyStats.avgPerMonth.toFixed(1)} / Monat</p>
             </div>
             <div className="glass-card p-4">
-              <p className="text-xs text-[var(--text-secondary)] mb-1">Laengste migränefreie Phase</p>
+                <p className="text-xs text-[var(--text-secondary)] mb-1">Längste migränefreie Phase</p>
               <p className="text-2xl font-medium">{monthlyStats.longestMigraineFree} Tage</p>
             </div>
           </div>
@@ -306,7 +353,33 @@ export default function HistoryPage() {
 
         <section className="glass-card p-6">
           <h2 className="text-xl font-medium mb-4">Kalender</h2>
-          <p className="text-sm text-[var(--text-secondary)] mb-4">{calendarData.monthLabel}</p>
+          <div className="flex items-center justify-between mb-4">
+            <button
+              type="button"
+              className="ui-button"
+              onClick={() => {
+                const prev = new Date(visibleMonthDate);
+                prev.setMonth(prev.getMonth() - 1);
+                setVisibleMonthDate(new Date(prev.getFullYear(), prev.getMonth(), 1));
+              }}
+            >
+              ←
+            </button>
+            <p className="text-sm text-[var(--text-secondary)]">{calendarData.monthLabel}</p>
+            <button
+              type="button"
+              className="ui-button"
+              disabled={!canGoNextMonth}
+              onClick={() => {
+                if (!canGoNextMonth) return;
+                const next = new Date(visibleMonthDate);
+                next.setMonth(next.getMonth() + 1);
+                setVisibleMonthDate(new Date(next.getFullYear(), next.getMonth(), 1));
+              }}
+            >
+              →
+            </button>
+          </div>
 
           <div className="grid grid-cols-7 gap-2 text-xs mb-2 text-[var(--text-secondary)]">
             {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day) => (
@@ -318,6 +391,8 @@ export default function HistoryPage() {
             {calendarData.cells.map((cell, idx) => {
               const intensity = cell.severity ? Math.min(0.12 + cell.severity * 0.06, 0.62) : 0;
               const isSelected = cell.date && selectedDate === cell.date;
+              const today = new Date().toISOString().slice(0, 10);
+              const isToday = cell.date === today;
 
               return (
                 <button
@@ -325,9 +400,13 @@ export default function HistoryPage() {
                   type="button"
                   disabled={!cell.date}
                   onClick={() => cell.date && setSelectedDate(cell.date)}
-                  className="h-12 rounded-lg border text-center disabled:opacity-20"
+                  className="h-12 rounded-lg border text-center disabled:opacity-20 relative"
                   style={{
-                    borderColor: isSelected ? 'var(--accent-medium)' : 'rgba(255, 255, 255, 0.08)',
+                    borderColor: isSelected
+                      ? 'var(--accent-medium)'
+                      : isToday
+                        ? 'var(--text-primary)'
+                        : 'rgba(255, 255, 255, 0.08)',
                     background: cell.severity
                       ? `rgba(252, 165, 165, ${intensity})`
                       : 'rgba(255, 255, 255, 0.02)',
@@ -341,12 +420,12 @@ export default function HistoryPage() {
 
           {selectedEntries.length > 0 && (
             <div className="mt-4 p-3 rounded-xl border border-white/10 bg-white/[0.02] space-y-2">
-              <p className="text-sm text-[var(--text-secondary)]">Detailansicht {selectedDate}</p>
+              <p className="text-sm text-[var(--text-secondary)]">Popup-Detail {selectedDate}</p>
               {selectedEntries.map((event) => (
                 <div key={event.id} className="text-sm border-t border-white/10 pt-2">
                   <p>Start: {new Date(event.started_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</p>
                   <p>Schweregrad: {event.severity}/10</p>
-                  <p className="truncate">Symptome: {event.symptoms.join(', ') || '—'}</p>
+                  <p className="truncate">Notiz: {event.notes || '—'}</p>
                 </div>
               ))}
             </div>
@@ -356,7 +435,12 @@ export default function HistoryPage() {
         <section className="glass-card p-6">
           <h2 className="text-xl font-medium mb-4">Woran lag es meistens</h2>
 
-          <div className="space-y-5">
+          {!hasEnvironmentData ? (
+            <p className="text-sm text-[var(--text-secondary)]">
+              Wird befüllt sobald neue Einträge mit Wetterdaten erfasst werden.
+            </p>
+          ) : (
+            <div className="space-y-5">
             <div>
               <p className="text-sm text-[var(--text-secondary)] mb-2">Top-Trigger</p>
               <div className="space-y-2">
@@ -371,9 +455,35 @@ export default function HistoryPage() {
                     </div>
                   </div>
                 ))}
-                {triggerStats.length === 0 && <p className="text-sm text-[var(--text-secondary)]">Keine Triggerdaten verfuegbar</p>}
+                {triggerStats.length === 0 && <p className="text-sm text-[var(--text-secondary)]">Keine Triggerdaten verfügbar</p>}
               </div>
             </div>
+
+            {monthlySeveritySeries.length > 1 && (
+              <div>
+                <p className="text-sm text-[var(--text-secondary)] mb-2">Durchschnittlicher Schweregrad pro Monat</p>
+                <svg viewBox="0 0 320 120" className="w-full h-32 rounded-lg border border-white/10 bg-white/[0.02]">
+                  {monthlySeveritySeries.map((point, index) => {
+                    const x = (index / (monthlySeveritySeries.length - 1)) * 300 + 10;
+                    const y = 110 - ((point.avg - 1) / 9) * 90;
+                    const next = monthlySeveritySeries[index + 1];
+                    if (!next) {
+                      return (
+                        <circle key={point.month} cx={x} cy={y} r="3" fill="var(--accent-medium)" />
+                      );
+                    }
+                    const nextX = ((index + 1) / (monthlySeveritySeries.length - 1)) * 300 + 10;
+                    const nextY = 110 - ((next.avg - 1) / 9) * 90;
+                    return (
+                      <g key={point.month}>
+                        <line x1={x} y1={y} x2={nextX} y2={nextY} stroke="var(--accent-medium)" strokeWidth="2" />
+                        <circle cx={x} cy={y} r="3" fill="var(--accent-medium)" />
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="glass-card p-4">
@@ -382,7 +492,7 @@ export default function HistoryPage() {
               </div>
 
               <div className="glass-card p-4">
-                <p className="text-xs text-[var(--text-secondary)] mb-1">Haeufigste Symptome</p>
+                <p className="text-xs text-[var(--text-secondary)] mb-1">Häufigste Symptome</p>
                 <ul className="text-sm space-y-1">
                   {symptomStats.slice(0, 3).map((entry) => (
                     <li key={entry.name}>{entry.name}: {entry.count}</li>
@@ -401,7 +511,8 @@ export default function HistoryPage() {
                 </ul>
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </section>
       </div>
     </div>

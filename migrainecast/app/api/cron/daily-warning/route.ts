@@ -121,8 +121,8 @@ export async function GET(request: NextRequest) {
         pressureDelta6h !== null
           ? `Luftdruck: ${pressureDelta6h >= 0 ? '+' : ''}${pressureDelta6h.toFixed(1)} hPa in 6h (Schwellenwert: ±${KRII_CONFIG.thresholds.pressure_6h} hPa)`
           : null,
-        `Temperatur: ${peakForecast.temperature.toFixed(1)} °C (Schwellenwert hoch: ${KRII_CONFIG.thresholds.temp_absolute_high} °C)`,
-        `Luftfeuchtigkeit: ${peakForecast.humidity.toFixed(0)} %`,
+        `Luftfeuchtigkeit: ${peakForecast.humidity.toFixed(0)}% (Optimum: 50%)`,
+        `UV-Index: ${(aqData.uv_index[peakScore.index] ?? 0).toFixed(1)} (Schwellenwert: ${KRII_CONFIG.thresholds.uv_critical})`,
         `Wind: ${peakForecast.wind_speed.toFixed(1)} km/h (Schwellenwert: ${KRII_CONFIG.thresholds.wind_critical} km/h)`,
         aqData.pm25[peakScore.index] !== undefined
           ? `PM2.5: ${aqData.pm25[peakScore.index].toFixed(1)} µg/m³ (Schwellenwert: ${KRII_CONFIG.thresholds.pm25_critical} µg/m³)`
@@ -136,12 +136,12 @@ export async function GET(request: NextRequest) {
       ].filter((value): value is string => Boolean(value));
 
       // Generate recommendation based on triggers
-      let recommendation = 'Triptan bereithalten. Bildschirmzeit reduzieren.';
+      let recommendation = '– Triptan bereithalten\n– Bildschirmzeit reduzieren\n– 2–3 Liter Wasser trinken';
       if (pressureDelta6h !== null && pressureDelta6h <= -KRII_CONFIG.thresholds.pressure_6h) {
-        recommendation += ' Ruhefenster in den naechsten 6 Stunden einplanen.';
+        recommendation += '\n– Ruhefenster in den nächsten 6 Stunden einplanen';
       }
       if ((aqData.pm25[peakScore.index] ?? 0) >= KRII_CONFIG.thresholds.pm25_critical) {
-        recommendation += ' Aussenbelastung und intensive Aktivitaet begrenzen.';
+        recommendation += '\n– Außenbelastung und intensive Aktivität begrenzen';
       }
 
       await sendDailyWarningEmail(email, {

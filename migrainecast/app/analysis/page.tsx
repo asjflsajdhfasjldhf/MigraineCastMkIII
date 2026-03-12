@@ -16,14 +16,18 @@ export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAnalysis = async () => {
       try {
         const fetchedEvents = await getMigraineEvents();
         setEvents(fetchedEvents);
-  const settings = await getUserSettings().catch(() => ({ location_name: null }));
-  setUserLocation(settings.location_name || null);
+        const settings = await getUserSettings().catch((error) => {
+          console.error('Error loading user settings in analysis page:', error);
+          return { location_name: null };
+        });
+        setUserLocation(settings.location_name || null);
 
         // Calculate statistics
         const completeEvents = fetchedEvents.filter((e) => e.stage === 'complete');
@@ -66,9 +70,11 @@ export default function AnalysisPage() {
           correlations: [], // Will be updated with real data
         });
 
+        setErrorMessage(null);
         setLoading(false);
       } catch (error) {
         console.error('Error loading analysis:', error);
+        setErrorMessage('Daten konnten nicht geladen werden. Bitte Supabase-Konfiguration prüfen.');
         setLoading(false);
       }
     };
@@ -94,6 +100,12 @@ export default function AnalysisPage() {
       <Navigation showLocationPin={true} locationName={userLocation} />
       {/* Main Content */}
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
+        {errorMessage && (
+          <div className="glass-card p-4 mb-6 border border-[var(--accent-high)]">
+            <p className="text-sm text-[var(--text-primary)]">{errorMessage}</p>
+          </div>
+        )}
+
         {/* Statistics Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="glass-card p-6">

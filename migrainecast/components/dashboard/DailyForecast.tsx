@@ -10,9 +10,15 @@ interface DailyForecastProps {
 
 export const DailyForecast: React.FC<DailyForecastProps> = ({ data }) => {
   const pressureTrendLabel = (trend?: 'falling' | 'stable' | 'rising') => {
-    if (trend === 'falling') return 'fallend';
-    if (trend === 'rising') return 'steigend';
-    return 'stabil';
+    if (trend === 'falling') return 'Fallend';
+    if (trend === 'rising') return 'Steigend';
+    return 'Stabil';
+  };
+
+  const riskLabel = (level: 'low' | 'medium' | 'high') => {
+    if (level === 'low') return 'Niedrig';
+    if (level === 'medium') return 'Mittel';
+    return 'Hoch';
   };
 
   return (
@@ -54,14 +60,18 @@ export const DailyForecast: React.FC<DailyForecastProps> = ({ data }) => {
                   <p className="text-2xl font-bold mono-value" style={{ color: riskColor }}>
                     {Math.round(day.krii_peak * 100)}%
                   </p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">Stufe: {day.krii_level}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">Stufe: {riskLabel(day.krii_level)}</p>
                 </div>
                 <div className="text-xs text-[var(--text-secondary)]">
                   <p>↑ {day.temperature_max.toFixed(0)}°C</p>
                   <p>↓ {day.temperature_min.toFixed(0)}°C</p>
                   <p>Drucktrend: {pressureTrendLabel(day.pressure_trend)}</p>
-                  <p className="truncate">Hauptrisikofaktor: {day.top_trigger || '—'}</p>
-                  <p>Luftqualitaet PM2.5: {day.pm25 !== null && day.pm25 !== undefined ? day.pm25.toFixed(1) : '—'}</p>
+                  {day.top_trigger && (
+                    <p className="truncate">Hauptrisikofaktor: {day.top_trigger}</p>
+                  )}
+                  {day.pm25 !== null && day.pm25 !== undefined && (
+                    <p>Luftqualität PM2.5: {day.pm25.toFixed(1)}</p>
+                  )}
                 </div>
               </div>
             );

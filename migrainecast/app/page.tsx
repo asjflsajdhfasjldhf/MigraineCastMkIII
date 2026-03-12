@@ -17,7 +17,12 @@ import {
   WeatherData,
 } from '@/types';
 import { calculateKRII as calculateKRIIValue } from '@/lib/krii';
-import { getUserSettings, getOpenMigraineEvents } from '@/lib/supabase';
+import {
+  getUserSettings,
+  getOpenMigraineEvents,
+  hasStoredLocationSettings,
+  updateUserSetting,
+} from '@/lib/supabase';
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -39,9 +44,9 @@ export default function DashboardPage() {
     const loadDashboardData = async () => {
       const berlinFallback = { lat: 52.52, lon: 13.405 };
 
-      const getBrowserCoordinates = async (): Promise<{ lat: number; lon: number }> => {
+      const getBrowserCoordinates = async (): Promise<{ lat: number; lon: number; fromBrowser: boolean }> => {
         if (!navigator.geolocation) {
-          return berlinFallback;
+          return { ...berlinFallback, fromBrowser: false };
         }
 
         return new Promise((resolve) => {
@@ -50,9 +55,10 @@ export default function DashboardPage() {
               resolve({
                 lat: position.coords.latitude,
                 lon: position.coords.longitude,
+                fromBrowser: true,
               });
             },
-            () => resolve(berlinFallback),
+            () => resolve({ ...berlinFallback, fromBrowser: false }),
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
           );
         });
@@ -74,8 +80,7 @@ export default function DashboardPage() {
       };
 
       try {
-        const [{ lat, lon }, settings] = await Promise.all([
-          getBrowserCoordinates(),
+        const [settings, hasStoredLocation] = await Promise.all([
           getUserSettings().catch(() => ({
             location_lat: '52.52',
             location_lon: '13.405',
@@ -84,10 +89,42 @@ export default function DashboardPage() {
             sleep_hours_default: '7.5',
             chronotype: 'normal' as const,
           })),
+          hasStoredLocationSettings().catch((error) => {
+            console.error('Error checking stored location in dashboard:', error);
+            return false;
+          }),
         ]);
 
         const chronotype = settings.chronotype || 'normal';
-        setUserLocation(settings.location_name || null);
+        let lat = parseFloat(settings.location_lat || `${berlinFallback.lat}`);
+        let lon = parseFloat(settings.location_lon || `${berlinFallback.lon}`);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          lat = berlinFallback.lat;
+          lon = berlinFallback.lon;
+        }
+
+        if (!hasStoredLocation) {
+          const browserCoords = await getBrowserCoordinates();
+          lat = browserCoords.lat;
+          lon = browserCoords.lon;
+
+          const locationName = browserCoords.fromBrowser
+            ? `GPS ${lat.toFixed(3)}, ${lon.toFixed(3)}`
+            : 'Berlin';
+
+          setUserLocation(locationName);
+
+          Promise.all([
+            updateUserSetting('location_lat', lat.toString()),
+            updateUserSetting('location_lon', lon.toString()),
+            updateUserSetting('location_name', locationName),
+          ]).catch((error) => {
+            console.error('Error persisting geolocation to user_settings:', error);
+          });
+        } else {
+          setUserLocation(settings.location_name || 'Berlin');
+        }
 
         const weatherBundle = await fetchWeatherBundle(lat, lon).catch(async () => {
           // Retry once with Berlin fallback if location-based request fails.
@@ -238,7 +275,7 @@ export default function DashboardPage() {
             top_trigger:
               peakIndexInHourly >= 0 && triggerByHour[peakIndexInHourly]?.length
                 ? triggerByHour[peakIndexInHourly][0]
-                : '—',
+                : undefined,
             pm25: dayPm25,
           };
         });

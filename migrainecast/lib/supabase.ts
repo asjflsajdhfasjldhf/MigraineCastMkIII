@@ -12,13 +12,20 @@ import {
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing SUPABASE_URL or SUPABASE_ANON_KEY - using placeholder values for build');
+const publicSupabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl;
+const publicSupabaseAnonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || supabaseAnonKey;
+
+if (!publicSupabaseUrl || !publicSupabaseAnonKey) {
+  console.warn(
+    'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY - using placeholder values for build'
+  );
 }
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
+  publicSupabaseUrl || 'https://placeholder.supabase.co',
+  publicSupabaseAnonKey || 'placeholder-key'
 );
 
 /**
@@ -31,7 +38,12 @@ export async function getMigraineEvents(): Promise<MigraineEvent[]> {
       .select('*')
       .order('started_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Query failed: migraine_events select order by started_at', error);
+      throw error;
+    }
+
+    console.error('Debug: migraine_events rows loaded', (data || []).length);
     return data || [];
   } catch (error) {
     console.error('Error fetching migraine events:', error);
@@ -251,7 +263,10 @@ export async function getOpenMigraineEvents(): Promise<MigraineEvent[]> {
       .neq('stage', 'complete')
       .order('started_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Query failed: migraine_events open events', error);
+      throw error;
+    }
     return data || [];
   } catch (error) {
     console.error('Error fetching open migraine events:', error);
@@ -274,11 +289,38 @@ export async function getMigraineEventsByDateRange(
       .lte('started_at', endDate.toISOString())
       .order('started_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Query failed: migraine_events by date range', error);
+      throw error;
+    }
     return data || [];
   } catch (error) {
     console.error('Error fetching migraine events by date range:', error);
     throw error;
+  }
+}
+
+/**
+ * Returns true when a location was explicitly stored by the user.
+ */
+export async function hasStoredLocationSettings(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('key')
+      .in('key', ['location_lat', 'location_lon'])
+      .limit(2);
+
+    if (error) {
+      console.error('Query failed: user_settings location keys', error);
+      return false;
+    }
+
+    const keys = new Set((data || []).map((row) => row.key));
+    return keys.has('location_lat') && keys.has('location_lon');
+  } catch (error) {
+    console.error('Error checking stored location settings:', error);
+    return false;
   }
 }
 

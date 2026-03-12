@@ -7,16 +7,36 @@ interface AppGateProps {
 }
 
 const PIN = '1990';
+const PIN_STORAGE_KEY = 'migrainecast_pin_unlock';
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const AppGate: React.FC<AppGateProps> = ({ children }) => {
   const [entered, setEntered] = useState('');
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [isFading, setIsFading] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
+  const [rememberFor30Days, setRememberFor30Days] = useState(true);
 
   useEffect(() => {
-    // Per requirement, force PIN entry on each tab reload.
-    sessionStorage.removeItem('migrainecast_pin_ok');
+    try {
+      const storedValue = localStorage.getItem(PIN_STORAGE_KEY);
+      if (!storedValue) return;
+
+      const timestamp = Number(storedValue);
+      if (!Number.isFinite(timestamp)) {
+        localStorage.removeItem(PIN_STORAGE_KEY);
+        return;
+      }
+
+      const isValid = Date.now() - timestamp < THIRTY_DAYS_MS;
+      if (isValid) {
+        setIsUnlocked(true);
+      } else {
+        localStorage.removeItem(PIN_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.error('Error reading PIN persistence from localStorage:', error);
+    }
   }, []);
 
   const pushDigit = (digit: string) => {
@@ -29,7 +49,16 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
 
     if (next.length === 4) {
       if (next === PIN) {
-        sessionStorage.setItem('migrainecast_pin_ok', '1');
+        try {
+          if (rememberFor30Days) {
+            localStorage.setItem(PIN_STORAGE_KEY, Date.now().toString());
+          } else {
+            localStorage.removeItem(PIN_STORAGE_KEY);
+          }
+        } catch (error) {
+          console.error('Error writing PIN persistence to localStorage:', error);
+        }
+
         setIsFading(true);
         window.setTimeout(() => {
           setIsUnlocked(true);
@@ -82,6 +111,16 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
                 Loeschen
               </button>
             </div>
+
+            <label className="pin-remember-row">
+              <input
+                type="checkbox"
+                className="ui-checkbox"
+                checked={rememberFor30Days}
+                onChange={(e) => setRememberFor30Days(e.target.checked)}
+              />
+              <span>30 Tage merken</span>
+            </label>
           </div>
         </div>
       )}

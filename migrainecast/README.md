@@ -34,7 +34,7 @@ Eine vollständige Next.js-Applikation zur Vorhersage und Nachverfolgung von Mig
 1. Erstellen Sie ein Projekt auf [supabase.com](https://supabase.com)
 2. Gehen Sie zum SQL-Editor
 3. Kopieren Sie den Inhalt von `supabase_migration.sql` und führen Sie das Skript aus
-4. Notieren Sie Ihre `SUPABASE_URL` und `SUPABASE_ANON_KEY` aus den Projekteinstellungen
+4. Notieren Sie Ihre `NEXT_PUBLIC_SUPABASE_URL` und `NEXT_PUBLIC_SUPABASE_ANON_KEY` aus den Projekteinstellungen
 
 ### 2. Environment-Variablen konfigurieren
 
@@ -42,8 +42,8 @@ Erstellen Sie eine `.env.local` Datei im Projektroot:
 
 ```env
 # Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 # SMTP (E-Mail)
 SMTP_HOST=smtp.gmail.com
@@ -112,8 +112,8 @@ git push -u origin main
 1. Gehen Sie zu [vercel.com](https://vercel.com)
 2. Importieren Sie Ihr GitHub-Repository
 3. Konfigurieren Sie die Umgebungsvariablen:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SMTP_HOST`
    - `SMTP_PORT`
    - `SMTP_USER`

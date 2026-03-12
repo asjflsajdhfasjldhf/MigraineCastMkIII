@@ -104,7 +104,7 @@ export async function sendDailyWarningEmail(
             <div class="section">
               <div class="label">Top 3 Trigger</div>
               <ul>
-                ${triggerLines || '<li>Keine Triggerdaten verfuegbar</li>'}
+                ${triggerLines || '<li>Keine Triggerdaten verfügbar</li>'}
               </ul>
             </div>
 
@@ -124,7 +124,7 @@ export async function sendDailyWarningEmail(
 
   await sendEmail({
     to: email,
-    subject: `MigraineCast Warnung ${date} - Peak ${peakPercentage}% um ${peak_hour}`,
+    subject: `MigraineCast – Risikowarnung ${date}`,
     html,
   });
 }

@@ -100,6 +100,19 @@ export const JournalForm: React.FC<JournalFormProps> = ({
     setMedications(updated);
   };
 
+  const handleNumericEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+
+    const focusable = Array.from(
+      document.querySelectorAll<HTMLElement>('input, select, textarea, button')
+    ).filter((element) => !element.hasAttribute('disabled'));
+
+    const currentIndex = focusable.indexOf(event.currentTarget);
+    const next = focusable[currentIndex + 1];
+    if (next) next.focus();
+  };
+
   const handleSaveStage = async () => {
     try {
       let data: any = {};
@@ -304,7 +317,9 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         value={med.dose_mg || ''}
+                        onKeyDown={handleNumericEnter}
                         onChange={(e) =>
                           handleMedicationChange(
                             idx,
@@ -321,9 +336,11 @@ export const JournalForm: React.FC<JournalFormProps> = ({
                       </label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min="1"
                         max="5"
                         value={med.effectiveness || ''}
+                        onKeyDown={handleNumericEnter}
                         onChange={(e) =>
                           handleMedicationChange(
                             idx,
@@ -366,9 +383,11 @@ export const JournalForm: React.FC<JournalFormProps> = ({
             </label>
             <input
               type="number"
+              inputMode="decimal"
               step="0.5"
               min="0"
               value={recoveryHours}
+              onKeyDown={handleNumericEnter}
               onChange={(e) => setRecoveryHours(parseFloat(e.target.value))}
               className="ui-input"
             />
@@ -382,9 +401,11 @@ export const JournalForm: React.FC<JournalFormProps> = ({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="0.5"
                 min="0"
                 value={sleepHours}
+                onKeyDown={handleNumericEnter}
                 onChange={(e) => setSleepHours(parseFloat(e.target.value))}
                 className="ui-input"
               />

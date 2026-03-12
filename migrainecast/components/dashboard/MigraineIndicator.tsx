@@ -89,9 +89,6 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
         ))}
       </div>
 
-      <p className="text-xs text-[var(--text-secondary)] mt-4">
-        Bewertung basiert auf Wetterparametern, Luftqualitaet und zeitlichem Risikofenster.
-      </p>
     </div>
   );
 };

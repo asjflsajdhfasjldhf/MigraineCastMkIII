@@ -40,6 +40,7 @@ export default function JournalPage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [userLocationLat, setUserLocationLat] = useState(52.52);
@@ -58,9 +59,11 @@ export default function JournalPage() {
         setUserLocation(settings.location_name || null);
         setUserLocationLat(parseFloat(settings.location_lat || '52.52'));
         setUserLocationLon(parseFloat(settings.location_lon || '13.405'));
+        setErrorMessage(null);
         setLoading(false);
       } catch (error) {
         console.error('Error loading events:', error);
+        setErrorMessage('Ereignisse konnten nicht geladen werden. Bitte Supabase prüfen.');
         setLoading(false);
       }
     };
@@ -418,6 +421,12 @@ export default function JournalPage() {
       <Navigation showLocationPin={true} locationName={userLocation} />
       {/* Main Content */}
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
+        {errorMessage && (
+          <div className="glass-card p-4 mb-6 border border-[var(--accent-high)]">
+            <p className="text-sm text-[var(--text-primary)]">{errorMessage}</p>
+          </div>
+        )}
+
         <div className="mb-6 flex flex-wrap gap-3">
           <button
             onClick={() => setEntryMode('now')}
