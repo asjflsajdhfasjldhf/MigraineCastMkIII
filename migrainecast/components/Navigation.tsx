@@ -4,33 +4,11 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { getUserSettings } from '@/lib/supabase';
 
 export const Navigation: React.FC = () => {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [dbOnline, setDbOnline] = useState<boolean | null>(null);
-  const [locationName, setLocationName] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadLocation = async () => {
-      try {
-        const settings = await getUserSettings();
-        if (!mounted) return;
-        setLocationName(settings.location_name || null);
-      } catch (error) {
-        if (!mounted) return;
-        console.error('Error loading location in navbar:', error);
-      }
-    };
-
-    loadLocation();
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -90,7 +68,7 @@ export const Navigation: React.FC = () => {
           <div className="nav-right-tools">
             <span className={`db-indicator ${dbOnline === false ? 'offline' : ''}`}>
               <span className="db-dot" />
-              <span>{dbOnline === null ? 'DB prüft' : dbOnline ? 'DB online' : 'DB offline'}</span>
+              <span>{dbOnline === null ? 'Data prueft' : dbOnline ? 'Data online' : 'Data offline'}</span>
             </span>
 
             <Link href="/journal" className="nav-plus-btn" aria-label="Neuer Eintrag">
@@ -120,26 +98,6 @@ export const Navigation: React.FC = () => {
                       {item.label}
                     </Link>
                   ))}
-                  {locationName && (
-                    <Link href="/settings" className="location-pin nav-location-row" onClick={handleLinkClick}>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M12 22C12 22 19 15.5455 19 10C19 6.13401 15.866 3 12 3C8.13401 3 5 6.13401 5 10C5 15.5455 12 22 12 22Z"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                        />
-                        <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.6" />
-                      </svg>
-                      <span>{locationName}</span>
-                    </Link>
-                  )}
                 </div>
               </div>
             )}

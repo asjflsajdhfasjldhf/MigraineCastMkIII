@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { getUserSettings, supabase, updateUserSetting } from '@/lib/supabase';
 import { UserSettings } from '@/types';
 import { KRII_CONFIG } from '@/lib/krii-config';
@@ -16,29 +15,6 @@ interface GeocodeApiResult {
   country?: string;
 }
 
-interface BackfillProgress {
-  total: number;
-  processed: number;
-  success: number;
-  failed: number;
-}
-
-interface MigraineEventBackfillRow {
-  id: string;
-  started_at: string;
-}
-
-interface ArchiveHourlyResponse {
-  hourly?: {
-    time: string[];
-    temperature_2m?: number[];
-    relativehumidity_2m?: number[];
-    surface_pressure?: number[];
-    windspeed_10m?: number[];
-    uv_index?: number[];
-  };
-}
-
 const DEFAULT_SETTINGS: UserSettings = {
   location_lat: '52.52',
   location_lon: '13.405',
@@ -47,64 +23,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   sleep_hours_default: '7.5',
   chronotype: 'normal',
 };
-
-const OPEN_METEO_ARCHIVE_URL = 'https://archive.open-meteo.com/v1/archive';
-const OPEN_METEO_HISTORICAL_FORECAST_URL = 'https://historical-forecast-api.open-meteo.com/v1/forecast';
-const OPEN_METEO_TIMEOUT_MS = 12000;
-
-const formatDate = (dateIso: string): string => new Date(dateIso).toISOString().split('T')[0];
-
-const parseHourlyTimestamp = (value: string): number => {
-  const ms = Date.parse(value);
-  if (Number.isFinite(ms)) return ms;
-  return Date.parse(`${value}:00`);
-};
-
-const findClosestIndex = (times: string[], targetMs: number): number => {
-  let closestIdx = 0;
-  let minDiff = Number.POSITIVE_INFINITY;
-
-  for (let i = 0; i < times.length; i++) {
-    const currentMs = parseHourlyTimestamp(times[i]);
-    const diff = Math.abs(currentMs - targetMs);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closestIdx = i;
-    }
-  }
-
-  return closestIdx;
-};
-
-const toNullableNumber = (value: number | undefined): number | null =>
-  typeof value === 'number' && Number.isFinite(value) ? value : null;
-
-const toSeason = (month: number): 'spring' | 'summer' | 'autumn' | 'winter' => {
-  if (month >= 2 && month <= 4) return 'spring';
-  if (month >= 5 && month <= 7) return 'summer';
-  if (month >= 8 && month <= 10) return 'autumn';
-  return 'winter';
-};
-
-const toPressureTrend = (change6h: number | null): 'falling' | 'stable' | 'rising' | null => {
-  if (change6h === null) return null;
-  if (change6h <= -1) return 'falling';
-  if (change6h >= 1) return 'rising';
-  return 'stable';
-};
-
-async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
@@ -119,9 +37,6 @@ export default function SettingsPage() {
   const [locationQuery, setLocationQuery] = useState('');
   const [locationSearching, setLocationSearching] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeApiResult[]>([]);
-  const [backfillRunning, setBackfillRunning] = useState(false);
-  const [backfillProgress, setBackfillProgress] = useState<BackfillProgress | null>(null);
-  const [backfillErrors, setBackfillErrors] = useState<string[]>([]);
 
   const handleNumericEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter') return;
@@ -283,200 +198,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleBackfillWeather = async () => {
-    try {
-      setBackfillRunning(true);
-      setMessage(null);
-      setBackfillProgress({ total: 0, processed: 0, success: 0, failed: 0 });
-      setBackfillErrors([]);
-
-      const lat = Number.parseFloat(settings.location_lat || '52.52');
-      const lon = Number.parseFloat(settings.location_lon || '13.405');
-      const usedLat = Number.isFinite(lat) ? lat : 52.52;
-      const usedLon = Number.isFinite(lon) ? lon : 13.405;
-
-      const { data: events, error: eventsError } = await supabase
-        .from('migraine_events')
-        .select('id, started_at')
-        .order('started_at', { ascending: true });
-
-      if (eventsError) {
-        throw new Error(`migraine_events konnten nicht geladen werden: ${eventsError.message}`);
-      }
-
-      const { data: existingSnapshots, error: snapshotsError } = await supabase
-        .from('environment_snapshots')
-        .select('event_id');
-
-      if (snapshotsError) {
-        throw new Error(`environment_snapshots konnten nicht geladen werden: ${snapshotsError.message}`);
-      }
-
-      const existingIds = new Set((existingSnapshots || []).map((row) => row.event_id));
-      const missingEvents = ((events || []) as MigraineEventBackfillRow[]).filter(
-        (event) => !existingIds.has(event.id)
-      );
-
-      const total = missingEvents.length;
-      let processed = 0;
-      let success = 0;
-      let failed = 0;
-
-      setBackfillProgress({ total, processed, success, failed });
-
-      for (const event of missingEvents) {
-        try {
-          const dateStr = formatDate(event.started_at);
-          const params = new URLSearchParams({
-            latitude: usedLat.toString(),
-            longitude: usedLon.toString(),
-            start_date: dateStr,
-            end_date: dateStr,
-            hourly: 'temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,uv_index,precipitation,weathercode',
-            timezone: 'Europe/Berlin',
-          });
-
-          let response: Response | null = null;
-          let archiveData: ArchiveHourlyResponse | null = null;
-          let usedUrl = '';
-          
-          // Try archive.open-meteo.com first
-          const archiveUrl = `${OPEN_METEO_ARCHIVE_URL}?${params.toString()}`;
-          console.log('[Backfill] Versuche Archive URL:', archiveUrl);
-          
-          try {
-            response = await fetchWithTimeout(archiveUrl, OPEN_METEO_TIMEOUT_MS);
-            console.log('[Backfill] Archive response.status:', response.status);
-            
-            if (response.ok) {
-              const raw = await response.text();
-              archiveData = JSON.parse(raw) as ArchiveHourlyResponse;
-              usedUrl = 'archive.open-meteo.com';
-            }
-          } catch (archiveError) {
-            console.log('[Backfill] Archive URL fehlgeschlagen:', archiveError instanceof Error ? archiveError.message : String(archiveError));
-          }
-
-          // Falls archive fehlschlägt, versuche historical-forecast-api
-          if (!archiveData) {
-            const forecastUrl = `${OPEN_METEO_HISTORICAL_FORECAST_URL}?${params.toString()}`;
-            console.log('[Backfill] Versuche Historical-Forecast URL:', forecastUrl);
-            
-            response = await fetchWithTimeout(forecastUrl, OPEN_METEO_TIMEOUT_MS);
-            console.log('[Backfill] Historical-Forecast response.status:', response.status);
-            
-            if (!response.ok) {
-              const body = await response.text();
-              throw new Error(`Historical-Forecast status=${response.status}; body=${body.slice(0, 280)}`);
-            }
-
-            const raw = await response.text();
-            try {
-              archiveData = JSON.parse(raw) as ArchiveHourlyResponse;
-              usedUrl = 'historical-forecast-api.open-meteo.com';
-            } catch (error) {
-              throw new Error(
-                `Historical-Forecast JSON Parse Fehler: ${error instanceof Error ? error.message : 'Unbekannt'}; body=${raw.slice(0, 280)}`
-              );
-            }
-          }
-
-          if (!archiveData) {
-            throw new Error('Keine Daten von Open-Meteo verfügbar');
-          }
-
-          if (!archiveData.hourly || archiveData.hourly.time.length === 0) {
-            throw new Error('Open-Meteo lieferte keine hourly Daten');
-          }
-
-          const startedAt = new Date(event.started_at);
-          const targetMs = startedAt.getTime();
-          const idxNow = findClosestIndex(archiveData.hourly.time, targetMs);
-          const idx6h = findClosestIndex(archiveData.hourly.time, targetMs - 6 * 60 * 60 * 1000);
-          const idx12h = findClosestIndex(archiveData.hourly.time, targetMs - 12 * 60 * 60 * 1000);
-          const idx24h = findClosestIndex(archiveData.hourly.time, targetMs - 24 * 60 * 60 * 1000);
-          const idx48h = findClosestIndex(archiveData.hourly.time, targetMs - 48 * 60 * 60 * 1000);
-
-          const pressureNow = toNullableNumber(archiveData.hourly.surface_pressure?.[idxNow]);
-          const pressure6h = toNullableNumber(archiveData.hourly.surface_pressure?.[idx6h]);
-          const pressure12h = toNullableNumber(archiveData.hourly.surface_pressure?.[idx12h]);
-          const pressure24h = toNullableNumber(archiveData.hourly.surface_pressure?.[idx24h]);
-          const pressure48h = toNullableNumber(archiveData.hourly.surface_pressure?.[idx48h]);
-          const tempNow = toNullableNumber(archiveData.hourly.temperature_2m?.[idxNow]);
-          const temp6h = toNullableNumber(archiveData.hourly.temperature_2m?.[idx6h]);
-
-          const pressureChange6h =
-            pressureNow !== null && pressure6h !== null ? pressureNow - pressure6h : null;
-          const pressureChange24h =
-            pressureNow !== null && pressure24h !== null ? pressureNow - pressure24h : null;
-          const tempChange6h = tempNow !== null && temp6h !== null ? tempNow - temp6h : null;
-
-          const payload = {
-            event_id: event.id,
-            recorded_at: event.started_at,
-            lat: usedLat,
-            lon: usedLon,
-            pressure: pressureNow,
-            pressure_trend: toPressureTrend(pressureChange6h),
-            pressure_change_6h: pressureChange6h,
-            pressure_change_24h: pressureChange24h,
-            pressure_6h_ago: pressure6h,
-            pressure_12h_ago: pressure12h,
-            pressure_24h_ago: pressure24h,
-            pressure_48h_ago: pressure48h,
-            temperature: tempNow,
-            temperature_absolute: tempNow,
-            temp_change_6h: tempChange6h,
-            humidity: toNullableNumber(archiveData.hourly.relativehumidity_2m?.[idxNow]),
-            wind_speed: toNullableNumber(archiveData.hourly.windspeed_10m?.[idxNow]),
-            uv_index: toNullableNumber(archiveData.hourly.uv_index?.[idxNow]),
-            air_quality_pm25: null,
-            air_quality_no2: null,
-            air_quality_ozone: null,
-            hour_of_day: startedAt.getHours(),
-            season: toSeason(startedAt.getMonth()),
-          };
-
-          const { error: insertError } = await supabase
-            .from('environment_snapshots')
-            .insert(payload);
-
-          if (insertError) {
-            throw new Error(`Supabase Insert Fehler: ${insertError.message}`);
-          }
-
-          success += 1;
-        } catch (error) {
-          failed += 1;
-          const reason = error instanceof Error ? error.message : 'Unbekannter Fehler';
-          setBackfillErrors((prev) => [
-            ...prev,
-            `Event ${event.id}: event_id=${event.id} | started_at=${event.started_at} | lat=${usedLat} | lon=${usedLon} | reason=${reason}`,
-          ]);
-        } finally {
-          processed += 1;
-          setBackfillProgress({ total, processed, success, failed });
-        }
-      }
-
-      setMessage({
-        type: failed > 0 ? 'error' : 'success',
-        text:
-          failed > 0
-            ? `Backfill abgeschlossen: ${success} von ${total} gespeichert, ${failed} Fehler. Details unten.`
-            : `Backfill abgeschlossen: ${success} von ${total} gespeichert.`,
-      });
-    } catch (error) {
-      console.error('Error running weather backfill:', error);
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Backfill fehlgeschlagen.',
-      });
-    } finally {
-      setBackfillRunning(false);
-    }
-  };
-
   const factorDescriptions: Record<string, string> = {
     pressure: 'Luftdruckabfall und starke Druckschwankungen.',
     temperature: 'Starke Temperaturwechsel oder Hitze.',
@@ -509,7 +230,7 @@ export default function SettingsPage() {
 
   return (
     <div className="app-shell">
-      <div className="app-main max-w-2xl mx-auto dashboard-container py-8">
+      <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
         {message && (
           <div
             className={`mb-6 p-4 rounded-2xl border ${
@@ -650,42 +371,6 @@ export default function SettingsPage() {
             >
               {saving ? 'Sende...' : 'Test-E-Mail senden'}
             </button>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 mb-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Datenpflege</h2>
-
-          <div className="space-y-3">
-            <button
-              onClick={handleBackfillWeather}
-              disabled={backfillRunning || saving}
-              className="ui-button w-full disabled:opacity-50"
-            >
-              {backfillRunning ? 'Wetterdaten werden nachgeladen...' : 'Wetterdaten nachladen'}
-            </button>
-
-            {backfillProgress && (
-              <div className="text-sm text-[var(--text-secondary)]">
-                <p>
-                  {backfillProgress.processed} von {backfillProgress.total} verarbeitet
-                </p>
-                <p>
-                  Erfolgreich: {backfillProgress.success} | Fehler: {backfillProgress.failed}
-                </p>
-              </div>
-            )}
-
-            {backfillErrors.length > 0 && (
-              <div className="text-sm rounded-xl border border-[var(--accent-high)] bg-white/[0.03] p-3 space-y-1">
-                <p className="text-[var(--text-primary)] font-medium">Fehlerdetails</p>
-                {backfillErrors.slice(-8).map((errorText, index) => (
-                  <p key={`${errorText}-${index}`} className="text-[var(--text-secondary)] break-all">
-                    {errorText}
-                  </p>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
