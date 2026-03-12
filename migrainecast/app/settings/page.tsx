@@ -216,7 +216,7 @@ export default function SettingsPage() {
       {/* Navigation */}
       <Navigation showLocationPin={false} locationName={null} />
 
-      <div className="max-w-2xl mx-auto dashboard-container py-8">
+      <div className="app-main max-w-2xl mx-auto dashboard-container py-8">
         {message && (
           <div
             className={`mb-6 p-4 rounded-2xl border ${

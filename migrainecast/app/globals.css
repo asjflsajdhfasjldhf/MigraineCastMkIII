@@ -19,7 +19,7 @@
   --color-background: var(--background);
   --color-foreground: var(--text-primary);
   --font-sans: var(--font-inter);
-  --font-mono: var(--font-jetbrains);
+  --font-mono: var(--font-inter);
 }
 
 body {
@@ -32,6 +32,7 @@ body {
   );
   color: var(--text-primary);
   font-family: var(--font-inter), sans-serif;
+  font-weight: 400;
 }
 
 * {
@@ -44,11 +45,13 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-syne), sans-serif;
+  font-family: var(--font-inter), sans-serif;
+  font-weight: 500;
 }
 
 .mono-value {
-  font-family: var(--font-jetbrains), monospace;
+  font-family: var(--font-inter), sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-shell {
@@ -56,40 +59,42 @@ h6 {
   color: var(--text-primary);
 }
 
+.app-main {
+  padding-top: 64px;
+}
+
 .app-nav {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 30;
+  left: 0;
+  right: 0;
+  z-index: 50;
   background: rgba(10, 10, 10, 0.85);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .nav-container {
-  max-width: 6xl;
+  max-width: 72rem;
   margin-left: auto;
   margin-right: auto;
-  padding: 1rem 1rem;
+  height: 64px;
+  padding: 0 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .nav-logo {
-  font-family: var(--font-syne), sans-serif;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 1.25rem;
+  font-weight: 500;
   color: var(--text-primary);
-  letter-spacing: -0.5px;
 }
 
 .nav-links {
   display: none;
   gap: 1.5rem;
-}
-
-.nav-links.visible {
-  display: flex;
 }
 
 .nav-link {
@@ -120,75 +125,73 @@ h6 {
 }
 
 .hamburger-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.5rem;
-  justify-content: center;
-  align-items: center;
-  z-index: 40;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
-.hamburger-btn span {
-  width: 24px;
-  height: 2px;
-  background: var(--text-primary);
-  border-radius: 999px;
-  transition: all 0.3s ease;
-}
-
-.hamburger-btn.open span:nth-child(1) {
-  transform: rotate(45deg) translateY(9px);
-}
-
-.hamburger-btn.open span:nth-child(2) {
-  opacity: 0;
-}
-
-.hamburger-btn.open span:nth-child(3) {
-  transform: rotate(-45deg) translateY(-9px);
-}
-
-.nav-menu {
+.nav-overlay-menu {
   position: fixed;
   top: 0;
-  right: -100%;
-  width: 100%;
-  max-width: 280px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   height: 100vh;
-  background: rgba(10, 10, 10, 0.95);
+  background: rgba(10, 10, 10, 0.97);
   backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 5rem 1.5rem 2rem;
+  z-index: 100;
+}
+
+.nav-overlay-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.nav-overlay-links {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  transition: right 0.3s ease;
-  z-index: 35;
+  justify-content: center;
+  align-items: center;
+  gap: 1.4rem;
+  padding: 2rem;
 }
 
-.nav-menu.open {
-  right: 0;
-}
-
-.nav-menu-link {
+.nav-overlay-link {
   color: var(--text-secondary);
-  font-size: 1rem;
-  transition: color 0.2s ease;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding-bottom: 0.75rem;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
-.nav-menu-link:hover {
+.nav-overlay-link.active,
+.nav-overlay-link:hover {
   color: var(--text-primary);
 }
 
-.nav-menu-link.active {
-  color: var(--text-primary);
+.nav-overlay-pin {
+  margin-top: 1rem;
 }
 
 /* Desktop Navigation */
@@ -197,26 +200,9 @@ h6 {
     display: none;
   }
 
-  .nav-menu {
-    position: static;
-    width: auto;
-    max-width: none;
-    height: auto;
-    background: none;
-    backdrop-filter: none;
-    border: none;
-    padding: 0;
-    gap: 1.5rem;
-    flex-direction: row;
-  }
-
   .nav-links {
     display: flex;
-  }
-
-  .nav-menu-link {
-    border: none;
-    padding: 0.25rem 0;
+    align-items: center;
   }
 }
 
@@ -375,6 +361,10 @@ h6 {
 
 /* Dashboard Layout - Responsive */
 @media (max-width: 767px) {
+  .app-main {
+    padding-top: 64px;
+  }
+
   .dashboard-container {
     padding: 1rem;
   }
@@ -407,5 +397,102 @@ h6 {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 1rem;
+  }
+}
+
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+}
+
+.pin-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pin-card {
+  width: min(92vw, 360px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  padding: 1.5rem;
+}
+
+.pin-card.shake {
+  animation: pin-shake 0.34s ease;
+}
+
+.pin-title {
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.pin-dot {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.pin-dot.filled {
+  color: var(--text-primary);
+}
+
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+}
+
+.pin-btn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border-radius: 12px;
+  min-height: 58px;
+  font-size: 1.2rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pin-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pin-btn-delete {
+  grid-column: span 3;
+  font-size: 1rem;
+}
+
+@keyframes pin-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
   }
 }

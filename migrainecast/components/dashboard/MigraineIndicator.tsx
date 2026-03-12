@@ -45,7 +45,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       <div className="flex items-start justify-between mb-4">
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">KRII-Wert</h2>
         <div
-          className="mono-value text-[72px] leading-[0.95] font-semibold"
+          className="text-[72px] leading-[0.95] font-light"
           style={{
             color: getRiskColor(riskLevel),
             textShadow: `0 0 28px color-mix(in oklab, ${getRiskColor(riskLevel)} 40%, transparent)`,

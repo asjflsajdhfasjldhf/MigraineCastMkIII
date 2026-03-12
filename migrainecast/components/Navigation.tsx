@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -12,6 +12,13 @@ interface NavigationProps {
 export const Navigation: React.FC<NavigationProps> = ({ showLocationPin, locationName }) => {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [menuOpen]);
 
   const isActive = (href: string) => {
     return pathname === href;
@@ -29,71 +36,73 @@ export const Navigation: React.FC<NavigationProps> = ({ showLocationPin, locatio
   };
 
   return (
-    <nav className="app-nav">
-      <div className="nav-container">
-        {/* Logo */}
-        <Link href="/" className="nav-logo" onClick={handleLinkClick}>
-          MigraineCast
-        </Link>
+    <>
+      <nav className="app-nav">
+        <div className="nav-container">
+          <Link href="/" className="nav-logo" onClick={handleLinkClick}>
+            MigraineCast
+          </Link>
 
-        {/* Desktop Navigation Links */}
-        <div className="nav-links">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-link ${isActive(item.href) ? 'active' : ''}`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
+          <div className="nav-links">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-link ${isActive(item.href) ? 'active' : ''}`}
+              >
+                {item.label}
+              </Link>
+            ))}
+            {showLocationPin && locationName && (
+              <Link href="/settings" className="location-pin">
+                <span>📍</span>
+                <span>{locationName}</span>
+              </Link>
+            )}
+          </div>
 
-        {/* Right Side Container */}
-        <div className="flex items-center gap-2">
-          {/* Location Pin (Desktop/Mobile) */}
-          {showLocationPin && locationName && (
-            <Link href="/settings" className="location-pin hidden sm:flex">
-              <span>📍</span>
-              <span>{locationName}</span>
-            </Link>
-          )}
-
-          {/* Hamburger Menu Button */}
           <button
-            className={`hamburger-btn md:hidden ${menuOpen ? 'open' : ''}`}
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
+            className="hamburger-btn"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Menue oeffnen"
             aria-expanded={menuOpen}
           >
-            <span></span>
-            <span></span>
-            <span></span>
+            ☰
           </button>
         </div>
+      </nav>
 
-        {/* Mobile Menu */}
-        <div className={`nav-menu ${menuOpen ? 'open' : ''}`}>
-          {/* Mobile Location Pin */}
-          {showLocationPin && locationName && (
-            <Link href="/settings" className="location-pin flex md:hidden" onClick={handleLinkClick}>
-              <span>📍</span>
-              <span>{locationName}</span>
-            </Link>
-          )}
+      {menuOpen && (
+        <div className="nav-overlay-menu" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="nav-overlay-close"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Menue schliessen"
+          >
+            ×
+          </button>
 
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-menu-link ${isActive(item.href) ? 'active' : ''}`}
-              onClick={handleLinkClick}
-            >
-              {item.label}
-            </Link>
-          ))}
+          <div className="nav-overlay-links">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-overlay-link ${isActive(item.href) ? 'active' : ''}`}
+                onClick={handleLinkClick}
+              >
+                {item.label}
+              </Link>
+            ))}
+            {showLocationPin && locationName && (
+              <Link href="/settings" className="location-pin nav-overlay-pin" onClick={handleLinkClick}>
+                <span>📍</span>
+                <span>{locationName}</span>
+              </Link>
+            )}
+          </div>
         </div>
-      </div>
-    </nav>
+      )}
+    </>
   );
 };

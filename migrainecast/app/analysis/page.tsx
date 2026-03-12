@@ -93,7 +93,7 @@ export default function AnalysisPage() {
       {/* Navigation */}
       <Navigation showLocationPin={true} locationName={userLocation} />
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto dashboard-container py-8">
+      <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
         {/* Statistics Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="glass-card p-6">

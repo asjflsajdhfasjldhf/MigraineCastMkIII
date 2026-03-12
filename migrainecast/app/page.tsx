@@ -300,7 +300,7 @@ export default function DashboardPage() {
         <Navigation showLocationPin={true} locationName={userLocation} />
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto dashboard-container py-8">
+      <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
         {/* Open Migraine Events Alert */}
         {openEvents.length > 0 && (
           <div className="mb-6 glass-card p-4">
