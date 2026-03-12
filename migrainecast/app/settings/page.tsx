@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getUserSettings, updateUserSetting } from '@/lib/supabase';
+import { getUserSettings, supabase, updateUserSetting } from '@/lib/supabase';
 import { UserSettings } from '@/types';
 import { KRII_CONFIG } from '@/lib/krii-config';
 
@@ -23,6 +23,22 @@ interface BackfillProgress {
   failed: number;
 }
 
+interface MigraineEventBackfillRow {
+  id: string;
+  started_at: string;
+}
+
+interface ArchiveHourlyResponse {
+  hourly?: {
+    time: string[];
+    temperature_2m?: number[];
+    relativehumidity_2m?: number[];
+    surface_pressure?: number[];
+    windspeed_10m?: number[];
+    uv_index?: number[];
+  };
+}
+
 const DEFAULT_SETTINGS: UserSettings = {
   location_lat: '52.52',
   location_lon: '13.405',
@@ -31,6 +47,63 @@ const DEFAULT_SETTINGS: UserSettings = {
   sleep_hours_default: '7.5',
   chronotype: 'normal',
 };
+
+const OPEN_METEO_ARCHIVE_URL = 'https://archive.open-meteo.com/v1/archive';
+const OPEN_METEO_TIMEOUT_MS = 12000;
+
+const formatDate = (dateIso: string): string => new Date(dateIso).toISOString().split('T')[0];
+
+const parseHourlyTimestamp = (value: string): number => {
+  const ms = Date.parse(value);
+  if (Number.isFinite(ms)) return ms;
+  return Date.parse(`${value}:00`);
+};
+
+const findClosestIndex = (times: string[], targetMs: number): number => {
+  let closestIdx = 0;
+  let minDiff = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < times.length; i++) {
+    const currentMs = parseHourlyTimestamp(times[i]);
+    const diff = Math.abs(currentMs - targetMs);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestIdx = i;
+    }
+  }
+
+  return closestIdx;
+};
+
+const toNullableNumber = (value: number | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+const toSeason = (month: number): 'spring' | 'summer' | 'autumn' | 'winter' => {
+  if (month >= 2 && month <= 4) return 'spring';
+  if (month >= 5 && month <= 7) return 'summer';
+  if (month >= 8 && month <= 10) return 'autumn';
+  return 'winter';
+};
+
+const toPressureTrend = (change6h: number | null): 'falling' | 'stable' | 'rising' | null => {
+  if (change6h === null) return null;
+  if (change6h <= -1) return 'falling';
+  if (change6h >= 1) return 'rising';
+  return 'stable';
+};
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
@@ -207,74 +280,151 @@ export default function SettingsPage() {
       setBackfillProgress({ total: 0, processed: 0, success: 0, failed: 0 });
       setBackfillErrors([]);
 
-      const response = await fetch('/api/backfill-weather', {
-        method: 'POST',
-      });
+      const lat = Number.parseFloat(settings.location_lat || '52.52');
+      const lon = Number.parseFloat(settings.location_lon || '13.405');
+      const usedLat = Number.isFinite(lat) ? lat : 52.52;
+      const usedLon = Number.isFinite(lon) ? lon : 13.405;
 
-      if (!response.ok || !response.body) {
-        throw new Error('Backfill-Route konnte nicht gestartet werden.');
+      const { data: events, error: eventsError } = await supabase
+        .from('migraine_events')
+        .select('id, started_at')
+        .order('started_at', { ascending: true });
+
+      if (eventsError) {
+        throw new Error(`migraine_events konnten nicht geladen werden: ${eventsError.message}`);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+      const { data: existingSnapshots, error: snapshotsError } = await supabase
+        .from('environment_snapshots')
+        .select('event_id');
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+      if (snapshotsError) {
+        throw new Error(`environment_snapshots konnten nicht geladen werden: ${snapshotsError.message}`);
+      }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+      const existingIds = new Set((existingSnapshots || []).map((row) => row.event_id));
+      const missingEvents = ((events || []) as MigraineEventBackfillRow[]).filter(
+        (event) => !existingIds.has(event.id)
+      );
 
-        for (const rawLine of lines) {
-          const line = rawLine.trim();
-          if (!line) continue;
+      const total = missingEvents.length;
+      let processed = 0;
+      let success = 0;
+      let failed = 0;
 
-          const payload = JSON.parse(line) as {
-            type: 'start' | 'progress' | 'done' | 'event-error' | 'fatal-error';
-            total?: number;
-            processed?: number;
-            success?: number;
-            failed?: number;
-            error?: string;
-            details?: string;
-            eventId?: string;
+      setBackfillProgress({ total, processed, success, failed });
+
+      for (const event of missingEvents) {
+        try {
+          const dateStr = formatDate(event.started_at);
+          const params = new URLSearchParams({
+            latitude: usedLat.toString(),
+            longitude: usedLon.toString(),
+            start_date: dateStr,
+            end_date: dateStr,
+            hourly: 'temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,uv_index',
+            timezone: 'Europe/Berlin',
+          });
+
+          const url = `${OPEN_METEO_ARCHIVE_URL}?${params.toString()}`;
+          const response = await fetchWithTimeout(url, OPEN_METEO_TIMEOUT_MS);
+
+          if (!response.ok) {
+            const body = await response.text();
+            throw new Error(`Open-Meteo status=${response.status}; body=${body.slice(0, 280)}`);
+          }
+
+          const raw = await response.text();
+          let archiveData: ArchiveHourlyResponse;
+          try {
+            archiveData = JSON.parse(raw) as ArchiveHourlyResponse;
+          } catch (error) {
+            throw new Error(
+              `Open-Meteo JSON Parse Fehler: ${error instanceof Error ? error.message : 'Unbekannt'}; body=${raw.slice(0, 280)}`
+            );
+          }
+
+          if (!archiveData.hourly || archiveData.hourly.time.length === 0) {
+            throw new Error('Open-Meteo lieferte keine hourly Daten');
+          }
+
+          const startedAt = new Date(event.started_at);
+          const targetMs = startedAt.getTime();
+          const idxNow = findClosestIndex(archiveData.hourly.time, targetMs);
+          const idx6h = findClosestIndex(archiveData.hourly.time, targetMs - 6 * 60 * 60 * 1000);
+          const idx12h = findClosestIndex(archiveData.hourly.time, targetMs - 12 * 60 * 60 * 1000);
+          const idx24h = findClosestIndex(archiveData.hourly.time, targetMs - 24 * 60 * 60 * 1000);
+          const idx48h = findClosestIndex(archiveData.hourly.time, targetMs - 48 * 60 * 60 * 1000);
+
+          const pressureNow = toNullableNumber(archiveData.hourly.surface_pressure?.[idxNow]);
+          const pressure6h = toNullableNumber(archiveData.hourly.surface_pressure?.[idx6h]);
+          const pressure12h = toNullableNumber(archiveData.hourly.surface_pressure?.[idx12h]);
+          const pressure24h = toNullableNumber(archiveData.hourly.surface_pressure?.[idx24h]);
+          const pressure48h = toNullableNumber(archiveData.hourly.surface_pressure?.[idx48h]);
+          const tempNow = toNullableNumber(archiveData.hourly.temperature_2m?.[idxNow]);
+          const temp6h = toNullableNumber(archiveData.hourly.temperature_2m?.[idx6h]);
+
+          const pressureChange6h =
+            pressureNow !== null && pressure6h !== null ? pressureNow - pressure6h : null;
+          const pressureChange24h =
+            pressureNow !== null && pressure24h !== null ? pressureNow - pressure24h : null;
+          const tempChange6h = tempNow !== null && temp6h !== null ? tempNow - temp6h : null;
+
+          const payload = {
+            event_id: event.id,
+            recorded_at: event.started_at,
+            lat: usedLat,
+            lon: usedLon,
+            pressure: pressureNow,
+            pressure_trend: toPressureTrend(pressureChange6h),
+            pressure_change_6h: pressureChange6h,
+            pressure_change_24h: pressureChange24h,
+            pressure_6h_ago: pressure6h,
+            pressure_12h_ago: pressure12h,
+            pressure_24h_ago: pressure24h,
+            pressure_48h_ago: pressure48h,
+            temperature: tempNow,
+            temperature_absolute: tempNow,
+            temp_change_6h: tempChange6h,
+            humidity: toNullableNumber(archiveData.hourly.relativehumidity_2m?.[idxNow]),
+            wind_speed: toNullableNumber(archiveData.hourly.windspeed_10m?.[idxNow]),
+            uv_index: toNullableNumber(archiveData.hourly.uv_index?.[idxNow]),
+            air_quality_pm25: null,
+            air_quality_no2: null,
+            air_quality_ozone: null,
+            hour_of_day: startedAt.getHours(),
+            season: toSeason(startedAt.getMonth()),
           };
 
-          if (payload.type === 'fatal-error') {
-            throw new Error(payload.error || 'Unbekannter Fehler beim Backfill.');
+          const { error: insertError } = await supabase
+            .from('environment_snapshots')
+            .insert(payload);
+
+          if (insertError) {
+            throw new Error(`Supabase Insert Fehler: ${insertError.message}`);
           }
 
-          if (payload.type === 'event-error') {
-            const errorText = payload.details || payload.error || 'Unbekannter Fehler';
-            setBackfillErrors((prev) => [...prev, `Event ${payload.eventId || 'unbekannt'}: ${errorText}`]);
-            continue;
-          }
-
-          if (payload.type === 'start' || payload.type === 'progress' || payload.type === 'done') {
-            setBackfillProgress({
-              total: payload.total || 0,
-              processed: payload.processed || 0,
-              success: payload.success || 0,
-              failed: payload.failed || 0,
-            });
-
-            if (payload.type === 'done') {
-              const total = payload.total || 0;
-              const success = payload.success || 0;
-              const failed = payload.failed || 0;
-              setMessage({
-                type: failed > 0 ? 'error' : 'success',
-                text:
-                  failed > 0
-                    ? `Backfill abgeschlossen: ${success} von ${total} gespeichert, ${failed} Fehler. Details unten.`
-                    : `Backfill abgeschlossen: ${success} von ${total} gespeichert.`,
-              });
-            }
-          }
+          success += 1;
+        } catch (error) {
+          failed += 1;
+          const reason = error instanceof Error ? error.message : 'Unbekannter Fehler';
+          setBackfillErrors((prev) => [
+            ...prev,
+            `Event ${event.id}: event_id=${event.id} | started_at=${event.started_at} | lat=${usedLat} | lon=${usedLon} | reason=${reason}`,
+          ]);
+        } finally {
+          processed += 1;
+          setBackfillProgress({ total, processed, success, failed });
         }
       }
+
+      setMessage({
+        type: failed > 0 ? 'error' : 'success',
+        text:
+          failed > 0
+            ? `Backfill abgeschlossen: ${success} von ${total} gespeichert, ${failed} Fehler. Details unten.`
+            : `Backfill abgeschlossen: ${success} von ${total} gespeichert.`,
+      });
     } catch (error) {
       console.error('Error running weather backfill:', error);
       setMessage({
