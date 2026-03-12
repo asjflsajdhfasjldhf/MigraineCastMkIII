@@ -21,11 +21,11 @@ export const WeatherSummary: React.FC<WeatherSummaryProps> = ({
   pm25,
 }) => {
   const items = [
-    { key: 'temp', label: 'Temperatur', icon: '◌', value: `${temperature.toFixed(1)}°C`, critical: temperature >= 28 },
-    { key: 'humidity', label: 'Luftfeuchtigkeit', icon: '◍', value: `${humidity}%`, critical: humidity >= 80 },
+    { key: 'temp', label: 'TEMP', icon: '◌', value: `${temperature.toFixed(1)}°C`, critical: temperature >= 28 },
+    { key: 'humidity', label: 'FEUCHTE', icon: '◍', value: `${humidity}%`, critical: humidity >= 80 },
     { key: 'wind', label: 'Wind', icon: '◔', value: `${windSpeed.toFixed(1)} km/h`, critical: windSpeed >= 40 },
-    { key: 'pressure', label: 'Luftdruck', icon: '◑', value: `${pressure.toFixed(0)} hPa`, critical: pressure <= 1007 },
-    { key: 'uv', label: 'UV-Index', icon: '◎', value: `${uvIndex.toFixed(1)}`, critical: uvIndex >= 7 },
+    { key: 'pressure', label: 'DRUCK', icon: '◑', value: `${pressure.toFixed(0)} hPa`, critical: pressure <= 1007 },
+    { key: 'uv', label: 'UV', icon: '◎', value: `${uvIndex.toFixed(1)}`, critical: uvIndex >= 7 },
   ];
 
   return (
@@ -42,7 +42,7 @@ export const WeatherSummary: React.FC<WeatherSummaryProps> = ({
             style={{ borderColor: item.critical ? 'var(--accent-high)' : undefined }}
           >
             <p className="text-3xl leading-none text-[var(--text-secondary)] mb-3">{item.icon}</p>
-            <p className="text-[10px] uppercase tracking-wide whitespace-nowrap text-[var(--text-secondary)] mb-1">{item.label}</p>
+            <p className="text-[10px] uppercase tracking-[0.05em] whitespace-nowrap overflow-hidden text-[var(--text-secondary)] mb-1">{item.label}</p>
             <p className="mono-value text-lg font-semibold text-[var(--text-primary)]">{item.value}</p>
           </div>
         ))}

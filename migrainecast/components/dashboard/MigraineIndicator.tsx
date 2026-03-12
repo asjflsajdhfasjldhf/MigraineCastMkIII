@@ -6,13 +6,11 @@ import React from 'react';
 interface MigraineIndicatorProps {
   kriiValue: number; // 0-1
   riskLevel: 'low' | 'medium' | 'high';
-  title?: string;
 }
 
 export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   kriiValue,
   riskLevel,
-  title = 'Heutiges Risiko',
 }) => {
   const percentage = Math.round(kriiValue * 100);
 
@@ -32,11 +30,11 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   const getRiskText = (level: string) => {
     switch (level) {
       case 'low':
-        return 'Niedriges Risiko';
+        return 'Niedrig';
       case 'medium':
-        return 'Mittleres Risiko';
+        return 'Mittel';
       case 'high':
-        return 'Hohes Risiko';
+        return 'Hoch';
       default:
         return 'Unbekannt';
     }
@@ -45,7 +43,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   return (
     <div className="w-full glass-card p-6">
       <div className="flex items-start justify-between mb-4">
-        <h2 className="text-xl font-medium text-[var(--text-primary)]">{title}</h2>
+        <h2 className="text-[11px] leading-4 tracking-[0.05em] uppercase text-[var(--text-secondary)]">KRII</h2>
         <div
           className="text-[72px] leading-[0.95] font-light"
           style={{
@@ -57,9 +55,8 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
         </div>
       </div>
 
-      <p className="text-sm mb-4">
-        <span className="text-[var(--text-secondary)]">Risikostufe:</span>{' '}
-        <span style={{ color: getRiskColor(riskLevel) }}>{getRiskText(riskLevel)}</span>
+      <p className="text-sm mb-4" style={{ color: getRiskColor(riskLevel) }}>
+        {getRiskText(riskLevel)}
       </p>
 
       {/* Progress bar */}
@@ -74,17 +71,12 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {[
-          ['Druck', 'Trendfaktor'],
-          ['Hydration', 'Verhaltensfaktor'],
-          ['Stress', 'Belastungsfaktor'],
-        ].map(([icon, label]) => (
+        {['Druck', 'Hydration', 'Stress'].map((label) => (
           <span
             key={label}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-white/10 bg-white/5 text-[var(--text-secondary)] pill"
           >
-            <span className="font-medium text-[var(--text-primary)]">{icon}</span>
-            <span>{label}</span>
+            <span className="font-medium text-[var(--text-primary)]">{label}</span>
           </span>
         ))}
       </div>

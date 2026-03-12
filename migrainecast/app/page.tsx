@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { MigraineIndicator } from '@/components/dashboard/MigraineIndicator';
 import { WeatherSummary } from '@/components/dashboard/WeatherSummary';
 import { RiskAlert } from '@/components/dashboard/RiskAlert';
@@ -12,13 +11,11 @@ import {
   EnvironmentSnapshot,
   HourlyForecast,
   DailyForecast as DailyForecastType,
-  MigraineEvent,
   WeatherData,
 } from '@/types';
 import { calculateKRII as calculateKRIIValue } from '@/lib/krii';
 import {
   getUserSettings,
-  getOpenMigraineEvents,
   hasStoredLocationSettings,
   updateUserSetting,
 } from '@/lib/supabase';
@@ -30,7 +27,6 @@ export default function DashboardPage() {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [hourlyData, setHourlyData] = useState<HourlyForecast[]>([]);
   const [dailyData, setDailyData] = useState<DailyForecastType[]>([]);
-  const [openEvents, setOpenEvents] = useState<MigraineEvent[]>([]);
   const [showAlert, setShowAlert] = useState(false);
   const [peakData, setPeakData] = useState<{
     percentage: number;
@@ -324,10 +320,6 @@ export default function DashboardPage() {
           setShowAlert(true);
         }
 
-        // Get open migraine events
-        const events = await getOpenMigraineEvents();
-        setOpenEvents(events);
-
         setLoading(false);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -353,20 +345,6 @@ export default function DashboardPage() {
     <div className="app-shell">
       {/* Main Content */}
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
-        {/* Open Migraine Events Alert */}
-        {openEvents.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-transparent">
-            <p className="text-[13px] text-[rgba(255,255,255,0.5)]">
-              Hinweis: Sie haben {openEvents.length} offene Migräneereignis(se).
-              Besuchen Sie das{' '}
-              <Link href="/journal" className="underline text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                Tagebuch
-              </Link>
-              , um diese zu aktualisieren.
-            </p>
-          </div>
-        )}
-
         {/* Risk Alert */}
         {peakData && (
           <RiskAlert
@@ -379,7 +357,7 @@ export default function DashboardPage() {
 
         {/* KRII Indicator and Weather Summary */}
         <div className="dashboard-grid-2 mb-6">
-          <MigraineIndicator title="Heutiges Risiko" kriiValue={kriiValue} riskLevel={riskLevel} />
+          <MigraineIndicator kriiValue={kriiValue} riskLevel={riskLevel} />
           {weatherData && (
             <WeatherSummary
               temperature={weatherData.current.temperature}

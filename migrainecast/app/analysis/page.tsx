@@ -239,15 +239,6 @@ export default function AnalysisPage() {
           </div>
         )}
 
-        {stats.totalEvents < 10 && (
-          <div className="p-4 mb-6 rounded-xl border border-white/10 bg-transparent">
-            <p className="text-[13px] text-white/50">
-              <span className="font-medium">Hinweis:</span> Sie haben {stats.totalEvents} Einträge. Ab etwa 50
-              Einträgen können detailliertere Analysen und ein personalisiertes ML-Modell trainiert werden.
-            </p>
-          </div>
-        )}
-
         <div className="mb-6">
           <CorrelationTable data={stats.correlations} />
         </div>

@@ -58,11 +58,6 @@ export const LagAnalysis: React.FC<LagAnalysisProps> = ({ data }) => {
             ))}
         </div>
       )}
-
-      <p className="text-xs text-[var(--text-secondary)] mt-6">
-        Die stärksten Druckabfälle kurz vor Migränebeginn deuten auf kritische
-        Trigger hin.
-      </p>
     </div>
   );
 };

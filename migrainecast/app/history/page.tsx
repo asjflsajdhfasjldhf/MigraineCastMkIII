@@ -501,7 +501,7 @@ export default function HistoryPage() {
 
           {!hasEnvironmentData ? (
             <p className="text-sm text-[var(--text-secondary)]">
-              Wird befüllt sobald neue Einträge mit Wetterdaten erfasst werden.
+              Keine Umweltdaten verfügbar.
             </p>
           ) : (
             <div className="space-y-5">

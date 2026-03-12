@@ -42,8 +42,23 @@ interface ArchiveHourlyResponse {
 }
 
 const ARCHIVE_ENDPOINT = 'https://archive.open-meteo.com/v1/archive';
+const OPEN_METEO_TIMEOUT_MS = 10000;
 
 const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const parseUtcHour = (value: string): number => {
   const ms = Date.parse(`${value}Z`);
@@ -91,9 +106,8 @@ async function fetchSnapshotForEvent(
 ): Promise<SnapshotInsert> {
   const startedAt = new Date(startedAtIso);
   const startDate = new Date(startedAt.getTime() - 48 * 60 * 60 * 1000);
-  const endDate = /^\d{4}-\d{2}-\d{2}/.test(startedAtIso)
-    ? startedAtIso.slice(0, 10)
-    : formatDate(startedAt);
+  const startDateStr = startDate.toISOString().split('T')[0];
+  const endDateStr = startedAt.toISOString().split('T')[0];
 
   const hourlyCandidates = [
     'pressure_msl,temperature_2m,relative_humidity_2m,wind_speed_10m,uv_index',
@@ -107,23 +121,37 @@ async function fetchSnapshotForEvent(
     const params = new URLSearchParams({
       latitude: lat.toString(),
       longitude: lon.toString(),
-      start_date: formatDate(startDate),
-      end_date: endDate,
+      start_date: startDateStr,
+      end_date: endDateStr,
       hourly: hourlyParam,
-      timezone: 'GMT',
+      timezone: 'Europe/Berlin',
     });
 
     const requestUrl = `${ARCHIVE_ENDPOINT}?${params.toString()}`;
 
     try {
-      const response = await fetch(requestUrl);
+      const response = await fetchWithTimeout(requestUrl, OPEN_METEO_TIMEOUT_MS);
       if (!response.ok) {
         const errorBody = await response.text();
+        console.error('Open-Meteo historical request failed:', {
+          status: response.status,
+          body: errorBody,
+          url: requestUrl,
+        });
         lastErrorDetail = `status=${response.status}; hourly=${hourlyParam}; body=${errorBody.slice(0, 240)}`;
         continue;
       }
 
-      const payload: ArchiveHourlyResponse = await response.json();
+      const responseText = await response.text();
+      let payload: ArchiveHourlyResponse;
+      try {
+        payload = JSON.parse(responseText) as ArchiveHourlyResponse;
+      } catch (error) {
+        const parseError = error instanceof Error ? error.message : 'Unknown JSON parse error';
+        lastErrorDetail = `json-parse-error=${parseError}; status=${response.status}; body=${responseText.slice(0, 240)}`;
+        continue;
+      }
+
       if (!payload.hourly || payload.hourly.time.length === 0) {
         lastErrorDetail = `No hourly data returned; hourly=${hourlyParam}; event=${eventId}`;
         continue;
@@ -132,9 +160,9 @@ async function fetchSnapshotForEvent(
       data = payload;
       break;
     } catch (error) {
+      const errorText = error instanceof Error ? error.message : 'Unknown error';
       lastErrorDetail =
-        `network/json error; hourly=${hourlyParam}; ` +
-        (error instanceof Error ? error.message : 'Unknown error');
+        `network/json error; hourly=${hourlyParam}; timeout_ms=${OPEN_METEO_TIMEOUT_MS}; error=${errorText}`;
     }
   }
 
