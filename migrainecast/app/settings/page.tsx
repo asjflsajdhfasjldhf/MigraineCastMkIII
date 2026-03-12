@@ -204,7 +204,7 @@ export default function SettingsPage() {
     return (
       <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full mx-auto mb-4" />
           <p className="text-[var(--text-secondary)]">Laedt Einstellungen...</p>
         </div>
       </div>

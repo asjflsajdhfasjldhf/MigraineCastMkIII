@@ -24,7 +24,13 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      await sendDailyWarningEmail(email, data);
+      await sendDailyWarningEmail(email, {
+        date: data.date || new Date().toLocaleDateString('de-DE'),
+        peak_krii: data.peak_krii ?? 0,
+        peak_hour: data.peak_hour || '--:--',
+        trigger_details: data.trigger_details || data.triggers || [],
+        recommendation: data.recommendation || 'Keine Empfehlung hinterlegt.',
+      });
       return NextResponse.json({ success: true, message: 'Warning email sent' });
     }
 

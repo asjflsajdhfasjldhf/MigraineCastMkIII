@@ -107,6 +107,10 @@ export interface CurrentWeather {
   wind_speed: number;
   pressure_msl: number;
   relative_humidity: number;
+  uv_index?: number | null;
+  pm25?: number | null;
+  no2?: number | null;
+  ozone?: number | null;
 }
 
 export interface HourlyWeather {
@@ -160,9 +164,13 @@ export interface HourlyForecast {
   time: string;
   temperature: number;
   pressure: number;
+  pressure_change_6h?: number | null;
   humidity: number;
   wind_speed: number;
+  uv_index?: number | null;
   pm25: number | null;
+  no2?: number | null;
+  ozone?: number | null;
   krii_value: number;
   krii_level: RiskLevel;
 }
@@ -174,6 +182,9 @@ export interface DailyForecast {
   temperature_max: number;
   temperature_min: number;
   weather_code: number;
+  pressure_trend?: 'falling' | 'stable' | 'rising';
+  top_trigger?: string;
+  pm25?: number | null;
 }
 
 export interface GeocodeResult {

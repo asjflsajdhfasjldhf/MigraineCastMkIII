@@ -37,7 +37,7 @@ export const RiskAlert: React.FC<RiskAlertProps> = ({
                 {triggers.map((trigger, idx) => (
                   <span
                     key={idx}
-                    className="px-2 py-1 rounded-full text-xs border"
+                    className="px-2 py-1 rounded-full text-xs border pill"
                     style={{ borderColor: 'var(--accent-high)', color: 'var(--accent-high)' }}
                   >
                     {trigger}

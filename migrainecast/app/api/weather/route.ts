@@ -32,12 +32,20 @@ export async function GET(request: NextRequest) {
         getHourlyAirQuality(lat, lon),
       ]);
 
+      const mergedHourly = hourly.map((hour, index) => ({
+        ...hour,
+        uv_index: aqHourly.uv_index[index] ?? hour.uv_index ?? null,
+        pm25: aqHourly.pm25[index] ?? hour.pm25 ?? null,
+        no2: aqHourly.no2[index] ?? null,
+        ozone: aqHourly.ozone[index] ?? null,
+      }));
+
       return NextResponse.json({
         current: {
           ...current.current,
           ...aqCurrent,
         },
-        hourly,
+        hourly: mergedHourly,
         daily,
         aqHourly,
       });

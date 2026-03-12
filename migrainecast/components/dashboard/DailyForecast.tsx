@@ -9,6 +9,12 @@ interface DailyForecastProps {
 }
 
 export const DailyForecast: React.FC<DailyForecastProps> = ({ data }) => {
+  const pressureTrendLabel = (trend?: 'falling' | 'stable' | 'rising') => {
+    if (trend === 'falling') return 'fallend';
+    if (trend === 'rising') return 'steigend';
+    return 'stabil';
+  };
+
   return (
     <div className="w-full glass-card p-6">
       <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
@@ -48,10 +54,14 @@ export const DailyForecast: React.FC<DailyForecastProps> = ({ data }) => {
                   <p className="text-2xl font-bold mono-value" style={{ color: riskColor }}>
                     {Math.round(day.krii_peak * 100)}%
                   </p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">Stufe: {day.krii_level}</p>
                 </div>
                 <div className="text-xs text-[var(--text-secondary)]">
                   <p>↑ {day.temperature_max.toFixed(0)}°C</p>
                   <p>↓ {day.temperature_min.toFixed(0)}°C</p>
+                  <p>Drucktrend: {pressureTrendLabel(day.pressure_trend)}</p>
+                  <p className="truncate">Hauptrisikofaktor: {day.top_trigger || '—'}</p>
+                  <p>Luftqualitaet PM2.5: {day.pm25 !== null && day.pm25 !== undefined ? day.pm25.toFixed(1) : '—'}</p>
                 </div>
               </div>
             );

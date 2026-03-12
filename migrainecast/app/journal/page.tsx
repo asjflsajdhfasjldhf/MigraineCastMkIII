@@ -42,14 +42,22 @@ export default function JournalPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [userLocationLat, setUserLocationLat] = useState(52.52);
+  const [userLocationLon, setUserLocationLon] = useState(13.405);
 
   useEffect(() => {
     const loadEvents = async () => {
       try {
         const fetchedEvents = await getMigraineEvents();
         setEvents(fetchedEvents);
-          const settings = await getUserSettings().catch(() => ({ location_name: null }));
-          setUserLocation(settings.location_name || null);
+        const settings = await getUserSettings().catch(() => ({
+          location_name: 'Berlin',
+          location_lat: '52.52',
+          location_lon: '13.405',
+        }));
+        setUserLocation(settings.location_name || null);
+        setUserLocationLat(parseFloat(settings.location_lat || '52.52'));
+        setUserLocationLon(parseFloat(settings.location_lon || '13.405'));
         setLoading(false);
       } catch (error) {
         console.error('Error loading events:', error);
@@ -322,9 +330,8 @@ export default function JournalPage() {
       setSelectedEventId(newEvent.id);
       setEvents([newEvent, ...events]);
 
-      const settings = await getUserSettings();
-      const lat = parseFloat(settings.location_lat);
-      const lon = parseFloat(settings.location_lon);
+      const lat = data.location_lat || userLocationLat;
+      const lon = data.location_lon || userLocationLon;
       const startedAtDate = new Date(data.started_at);
 
       const [historicalLag, historicalPoint, aqData] = await Promise.all([
@@ -397,7 +404,7 @@ export default function JournalPage() {
     return (
       <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full mx-auto mb-4" />
           <p className="text-[var(--text-secondary)]">Lädt Journal...</p>
         </div>
       </div>
@@ -442,6 +449,11 @@ export default function JournalPage() {
               <RetrospectiveJournalForm
                 onSave={handleSaveRetrospective}
                 isLoading={isSaving}
+                defaultLocation={{
+                  name: userLocation || 'Berlin',
+                  lat: userLocationLat,
+                  lon: userLocationLon,
+                }}
               />
             )}
           </div>

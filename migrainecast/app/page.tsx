@@ -87,10 +87,9 @@ export default function DashboardPage() {
         ]);
 
         const chronotype = settings.chronotype || 'normal';
+        setUserLocation(settings.location_name || null);
 
         const weatherBundle = await fetchWeatherBundle(lat, lon).catch(async () => {
-        
-            setUserLocation(settings.location_name || null);
           // Retry once with Berlin fallback if location-based request fails.
           return fetchWeatherBundle(berlinFallback.lat, berlinFallback.lon);
         });
@@ -110,46 +109,27 @@ export default function DashboardPage() {
         setHourlyData(hourly);
         setDailyData(daily);
 
-        // Calculate KRII for current conditions
-        const currentEnv: EnvironmentSnapshot = {
-          id: '',
-          event_id: '',
-          recorded_at: new Date().toISOString(),
-          lat,
-          lon,
-          pressure: weather.current.pressure_msl,
-          pressure_trend: null,
-          pressure_change_6h: null,
-          pressure_change_24h: null,
-          pressure_6h_ago: null,
-          pressure_12h_ago: null,
-          pressure_24h_ago: null,
-          pressure_48h_ago: null,
-          temperature: weather.current.temperature,
-          temperature_absolute: weather.current.temperature,
-          temp_change_6h: null,
-          humidity: weather.current.relative_humidity,
-          wind_speed: weather.current.wind_speed,
-          uv_index: 0, // Will be fetched from air quality API
-          air_quality_pm25: null,
-          air_quality_no2: null,
-          air_quality_ozone: null,
-          hour_of_day: new Date().getHours(),
-          season: getSeason(new Date()),
-          created_at: new Date().toISOString(),
-        };
-
-        const krii = calculateKRIIValue(currentEnv, null, chronotype);
-        setKriiValue(krii.value);
-        setRiskLevel(krii.level);
-
         // Calculate KRII for hourly data and find peak
         let maxKrii = 0;
         let peakIndex = 0;
+        const triggerByHour: string[][] = [];
 
         for (let i = 0; i < hourly.length; i++) {
           const hour = hourly[i];
           const hourDate = new Date(hour.time);
+          const pressureChange6h = i >= 6
+            ? (hour.pressure ?? 0) - (hourly[i - 6].pressure ?? 0)
+            : null;
+          const pressureTrend =
+            pressureChange6h === null
+              ? null
+              : pressureChange6h < -1
+                ? 'falling'
+                : pressureChange6h > 1
+                  ? 'rising'
+                  : 'stable';
+
+          hourly[i].pressure_change_6h = pressureChange6h;
 
           const env: EnvironmentSnapshot = {
             id: '',
@@ -158,8 +138,8 @@ export default function DashboardPage() {
             lat,
             lon,
             pressure: hour.pressure,
-            pressure_trend: null,
-            pressure_change_6h: null,
+            pressure_trend: pressureTrend,
+            pressure_change_6h: pressureChange6h,
             pressure_change_24h: null,
             pressure_6h_ago: null,
             pressure_12h_ago: null,
@@ -170,10 +150,10 @@ export default function DashboardPage() {
             temp_change_6h: null,
             humidity: hour.humidity,
             wind_speed: hour.wind_speed,
-            uv_index: 0,
+            uv_index: hour.uv_index ?? null,
             air_quality_pm25: hour.pm25,
-            air_quality_no2: null,
-            air_quality_ozone: null,
+            air_quality_no2: hour.no2 ?? null,
+            air_quality_ozone: hour.ozone ?? null,
             hour_of_day: hourDate.getHours(),
             season: getSeason(hourDate),
             created_at: new Date().toISOString(),
@@ -182,11 +162,33 @@ export default function DashboardPage() {
           const krii = calculateKRIIValue(env, null, chronotype);
           hourly[i].krii_value = krii.value;
           hourly[i].krii_level = krii.level;
+          triggerByHour[i] = krii.primaryTriggers;
 
           if (krii.value > maxKrii) {
             maxKrii = krii.value;
             peakIndex = i;
           }
+        }
+
+        const today = new Date();
+        const isSameLocalDay = (a: Date, b: Date) =>
+          a.getFullYear() === b.getFullYear() &&
+          a.getMonth() === b.getMonth() &&
+          a.getDate() === b.getDate();
+
+        const todayIndices = hourly
+          .map((hour, index) => ({ hour, index }))
+          .filter(({ hour }) => isSameLocalDay(new Date(hour.time), today));
+
+        if (todayIndices.length > 0) {
+          const todayPeak = todayIndices.reduce((max, item) =>
+            item.hour.krii_value > max.hour.krii_value ? item : max
+          );
+          setKriiValue(todayPeak.hour.krii_value);
+          setRiskLevel(todayPeak.hour.krii_level);
+        } else if (hourly.length > 0) {
+          setKriiValue(hourly[0].krii_value);
+          setRiskLevel(hourly[0].krii_level);
         }
 
         setHourlyData([...hourly]);
@@ -212,10 +214,32 @@ export default function DashboardPage() {
             hour.krii_value > currentPeak.krii_value ? hour : currentPeak
           );
 
+          const peakIndexInHourly = hourly.findIndex((hour) => hour.time === peakHour.time);
+          const firstPressure = dayHours[0].pressure;
+          const lastPressure = dayHours[dayHours.length - 1].pressure;
+          const pressureTrend: 'falling' | 'stable' | 'rising' =
+            lastPressure - firstPressure < -1
+              ? 'falling'
+              : lastPressure - firstPressure > 1
+                ? 'rising'
+                : 'stable';
+          const pm25Values = dayHours
+            .map((h) => h.pm25)
+            .filter((value): value is number => value !== null && value !== undefined);
+          const dayPm25 = pm25Values.length > 0
+            ? pm25Values.reduce((sum, value) => sum + value, 0) / pm25Values.length
+            : null;
+
           return {
             ...day,
             krii_peak: peakHour.krii_value,
             krii_level: peakHour.krii_level,
+            pressure_trend: pressureTrend,
+            top_trigger:
+              peakIndexInHourly >= 0 && triggerByHour[peakIndexInHourly]?.length
+                ? triggerByHour[peakIndexInHourly][0]
+                : '—',
+            pm25: dayPm25,
           };
         });
 
@@ -249,10 +273,10 @@ export default function DashboardPage() {
               temp_change_6h: null,
               humidity: hourly[peakIndex].humidity,
               wind_speed: hourly[peakIndex].wind_speed,
-              uv_index: 0,
+              uv_index: hourly[peakIndex].uv_index ?? null,
               air_quality_pm25: hourly[peakIndex].pm25,
-              air_quality_no2: null,
-              air_quality_ozone: null,
+              air_quality_no2: hourly[peakIndex].no2 ?? null,
+              air_quality_ozone: hourly[peakIndex].ozone ?? null,
               hour_of_day: peakTime.getHours(),
               season: getSeason(peakTime),
               created_at: new Date().toISOString(),
@@ -264,7 +288,7 @@ export default function DashboardPage() {
           setPeakData({
             percentage: Math.round(maxKrii * 100),
             time: timeStr,
-            triggers: krii.primaryTriggers,
+            triggers: krii.primaryTriggers.slice(0, 3),
           });
           setShowAlert(true);
         }
@@ -287,7 +311,7 @@ export default function DashboardPage() {
     return (
       <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-16 h-16 border-4 border-white/10 border-t-white/40 rounded-full mx-auto mb-4" />
           <p className="text-[var(--text-secondary)]">Lädt Dashboard...</p>
         </div>
       </div>
@@ -327,15 +351,15 @@ export default function DashboardPage() {
 
         {/* KRII Indicator and Weather Summary */}
         <div className="dashboard-grid-2 mb-6">
-          <MigraineIndicator kriiValue={kriiValue} riskLevel={riskLevel} />
+          <MigraineIndicator title="Heutiges Risiko" kriiValue={kriiValue} riskLevel={riskLevel} />
           {weatherData && (
             <WeatherSummary
               temperature={weatherData.current.temperature}
               humidity={weatherData.current.relative_humidity}
               windSpeed={weatherData.current.wind_speed}
               pressure={weatherData.current.pressure_msl}
-              uvIndex={0}
-              pm25={null}
+              uvIndex={weatherData.current.uv_index ?? 0}
+              pm25={weatherData.current.pm25 ?? null}
             />
           )}
         </div>

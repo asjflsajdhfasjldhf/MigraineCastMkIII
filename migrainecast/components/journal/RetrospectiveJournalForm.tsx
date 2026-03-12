@@ -15,9 +15,20 @@ interface MedicationInput {
   effectiveness?: number;
 }
 
+interface GeocodeApiResult {
+  name: string;
+  latitude: number;
+  longitude: number;
+  admin1?: string;
+  country?: string;
+}
+
 export interface RetrospectiveEntryData {
   started_at: string;
   ended_at: string;
+  location_name: string;
+  location_lat: number;
+  location_lon: number;
   severity: number;
   prodromal_symptoms: string[];
   symptoms: string[];
@@ -42,11 +53,17 @@ export interface RetrospectiveEntryData {
 interface RetrospectiveJournalFormProps {
   onSave: (data: RetrospectiveEntryData) => Promise<void>;
   isLoading?: boolean;
+  defaultLocation?: {
+    name: string;
+    lat: number;
+    lon: number;
+  };
 }
 
 export const RetrospectiveJournalForm: React.FC<RetrospectiveJournalFormProps> = ({
   onSave,
   isLoading = false,
+  defaultLocation,
 }) => {
   const [startedAt, setStartedAt] = useState(new Date());
   const [endedAt, setEndedAt] = useState(new Date());
@@ -70,6 +87,12 @@ export const RetrospectiveJournalForm: React.FC<RetrospectiveJournalFormProps> =
   const [socialExhaustion, setSocialExhaustion] = useState(3);
   const [overstimulation, setOverstimulation] = useState(3);
   const [notes, setNotes] = useState('');
+  const [locationName, setLocationName] = useState(defaultLocation?.name || 'Berlin');
+  const [locationLat, setLocationLat] = useState(defaultLocation?.lat || 52.52);
+  const [locationLon, setLocationLon] = useState(defaultLocation?.lon || 13.405);
+  const [locationQuery, setLocationQuery] = useState(defaultLocation?.name || 'Berlin');
+  const [locationResults, setLocationResults] = useState<GeocodeApiResult[]>([]);
+  const [isLocationSearching, setIsLocationSearching] = useState(false);
 
   const handleToggleArrayValue = (
     list: string[],
@@ -105,10 +128,51 @@ export const RetrospectiveJournalForm: React.FC<RetrospectiveJournalFormProps> =
     setMedications(medications.filter((_, i) => i !== index));
   };
 
+  const handleLocationSearch = async () => {
+    if (!locationQuery.trim()) return;
+
+    try {
+      setIsLocationSearching(true);
+      const params = new URLSearchParams({
+        name: locationQuery.trim(),
+        count: '5',
+        language: 'de',
+        format: 'json',
+      });
+
+      const response = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to search location');
+      }
+
+      const data = await response.json();
+      setLocationResults(data.results || []);
+    } catch (error) {
+      console.error('Error searching retrospective location:', error);
+      setLocationResults([]);
+    } finally {
+      setIsLocationSearching(false);
+    }
+  };
+
+  const handleSelectLocation = (result: GeocodeApiResult) => {
+    const name = `${result.name}${result.admin1 ? `, ${result.admin1}` : ''}${result.country ? ` (${result.country})` : ''}`;
+    setLocationName(name);
+    setLocationQuery(name);
+    setLocationLat(result.latitude);
+    setLocationLon(result.longitude);
+    setLocationResults([]);
+  };
+
   const handleSubmit = async () => {
     const payload: RetrospectiveEntryData = {
       started_at: startedAt.toISOString(),
       ended_at: endedAt.toISOString(),
+      location_name: locationName,
+      location_lat: locationLat,
+      location_lon: locationLon,
       severity,
       prodromal_symptoms: prodromalSymptoms,
       symptoms,
@@ -140,6 +204,42 @@ export const RetrospectiveJournalForm: React.FC<RetrospectiveJournalFormProps> =
       </h2>
 
       <div className="space-y-6">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+          <label className="block text-sm font-medium text-[var(--text-secondary)]">Standort fuer Historical-Daten</label>
+          <div className="flex flex-col md:flex-row gap-2">
+            <input
+              type="text"
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              placeholder="Stadt suchen"
+              className="ui-input"
+            />
+            <button type="button" onClick={handleLocationSearch} className="ui-button md:w-auto" disabled={isLocationSearching}>
+              {isLocationSearching ? 'Suche...' : 'Suchen'}
+            </button>
+          </div>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Aktiv: {locationName} ({locationLat.toFixed(3)}, {locationLon.toFixed(3)})
+          </p>
+          {locationResults.length > 0 && (
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-white/10">
+              {locationResults.map((result, index) => {
+                const label = `${result.name}${result.admin1 ? `, ${result.admin1}` : ''}${result.country ? ` (${result.country})` : ''}`;
+                return (
+                  <button
+                    key={`${result.name}-${result.latitude}-${index}`}
+                    type="button"
+                    onClick={() => handleSelectLocation(result)}
+                    className="w-full text-left px-3 py-2 border-b last:border-b-0 border-white/10 hover:bg-white/5 text-sm text-[var(--text-primary)]"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">

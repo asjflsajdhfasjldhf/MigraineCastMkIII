@@ -27,6 +27,7 @@ export const Navigation: React.FC<NavigationProps> = ({ showLocationPin, locatio
   const navItems = [
     { href: '/', label: 'Dashboard' },
     { href: '/journal', label: 'Tagebuch' },
+    { href: '/history', label: 'Verlauf' },
     { href: '/analysis', label: 'Analyse' },
     { href: '/settings', label: 'Einstellungen' },
   ];

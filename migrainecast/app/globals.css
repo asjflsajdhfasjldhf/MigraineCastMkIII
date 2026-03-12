@@ -36,7 +36,22 @@ body {
 }
 
 * {
-  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+p,
+span,
+div,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+td,
+th,
+li {
+  word-break: break-word;
 }
 
 h1,
@@ -47,6 +62,22 @@ h5,
 h6 {
   font-family: var(--font-inter), sans-serif;
   font-weight: 500;
+}
+
+.font-light {
+  font-weight: 300 !important;
+}
+
+.font-normal {
+  font-weight: 400 !important;
+}
+
+.font-medium,
+.font-semibold,
+.font-bold,
+.font-extrabold,
+.font-black {
+  font-weight: 500 !important;
 }
 
 .mono-value {
@@ -352,11 +383,47 @@ h6 {
   transition: color 0.2s ease;
   padding: 0.4rem 0.6rem;
   border-radius: 6px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .location-pin:hover {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.05);
+}
+
+.pill {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fab-journal {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(24, 24, 24, 0.95);
+  backdrop-filter: blur(8px);
+  color: var(--text-primary);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.fab-journal:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Dashboard Layout - Responsive */

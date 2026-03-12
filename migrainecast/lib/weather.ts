@@ -102,9 +102,13 @@ export async function getHourlyForecast(
           time: data.hourly.time[i],
           temperature: data.hourly.temperature_2m[i] || 0,
           pressure: data.hourly.pressure_msl[i] || 1013,
+          pressure_change_6h: null,
           humidity: data.hourly.relative_humidity_2m[i] || 50,
           wind_speed: data.hourly.wind_speed_10m[i] || 0,
+          uv_index: data.hourly.uv_index?.[i] || null,
           pm25: null, // Will be fetched separately
+          no2: null,
+          ozone: null,
           krii_value: 0, // Will be calculated
           krii_level: 'low', // Will be calculated
         });

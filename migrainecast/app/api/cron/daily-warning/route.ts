@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getHourlyForecast, getHistoricalWeather } from '@/lib/weather';
 import { getHourlyAirQuality } from '@/lib/air-quality';
 import { calculateKRII } from '@/lib/krii';
+import { KRII_CONFIG } from '@/lib/krii-config';
 import { sendDailyWarningEmail } from '@/lib/email';
 import { getUserSettings } from '@/lib/supabase';
 import { EnvironmentSnapshot } from '@/types';
@@ -83,6 +84,7 @@ export async function GET(request: NextRequest) {
 
       const krii = calculateKRII(env, null, chronotype);
       kriiScores.push({
+        index: i,
         time: forecast.time,
         hour: hour,
         krii: krii.value,
@@ -103,27 +105,50 @@ export async function GET(request: NextRequest) {
         minute: '2-digit',
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
+      const peakDate = new Date(peakScore.time).toLocaleDateString('de-DE', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+
+      const peakForecast = hourlyForecast[peakScore.index];
+      const pressureDelta6h =
+        peakScore.index >= 6
+          ? peakForecast.pressure - hourlyForecast[peakScore.index - 6].pressure
+          : null;
+
+      const triggerDetails = [
+        pressureDelta6h !== null
+          ? `Luftdruck: ${pressureDelta6h >= 0 ? '+' : ''}${pressureDelta6h.toFixed(1)} hPa in 6h (Schwellenwert: ±${KRII_CONFIG.thresholds.pressure_6h} hPa)`
+          : null,
+        `Temperatur: ${peakForecast.temperature.toFixed(1)} °C (Schwellenwert hoch: ${KRII_CONFIG.thresholds.temp_absolute_high} °C)`,
+        `Luftfeuchtigkeit: ${peakForecast.humidity.toFixed(0)} %`,
+        `Wind: ${peakForecast.wind_speed.toFixed(1)} km/h (Schwellenwert: ${KRII_CONFIG.thresholds.wind_critical} km/h)`,
+        aqData.pm25[peakScore.index] !== undefined
+          ? `PM2.5: ${aqData.pm25[peakScore.index].toFixed(1)} µg/m³ (Schwellenwert: ${KRII_CONFIG.thresholds.pm25_critical} µg/m³)`
+          : null,
+        aqData.no2[peakScore.index] !== undefined
+          ? `NO2: ${aqData.no2[peakScore.index].toFixed(1)} µg/m³`
+          : null,
+        aqData.ozone[peakScore.index] !== undefined
+          ? `Ozon: ${aqData.ozone[peakScore.index].toFixed(1)} µg/m³`
+          : null,
+      ].filter((value): value is string => Boolean(value));
 
       // Generate recommendation based on triggers
-      let recommendation =
-        'Halten Sie Ihr Migränmedikament bereit und trinken Sie ausreichend Wasser.';
-
-      if (peakScore.triggers.includes('Luftdruck')) {
-        recommendation +=
-          ' Der Luftdruckwechsel könnte ein Trigger sein.';
+      let recommendation = 'Triptan bereithalten. Bildschirmzeit reduzieren.';
+      if (pressureDelta6h !== null && pressureDelta6h <= -KRII_CONFIG.thresholds.pressure_6h) {
+        recommendation += ' Ruhefenster in den naechsten 6 Stunden einplanen.';
       }
-      if (peakScore.triggers.includes('Temperatur')) {
-        recommendation += ' Achten Sie auf Temperaturveränderungen.';
-      }
-      if (peakScore.triggers.includes('Luftqualität')) {
-        recommendation +=
-          ' Die Luftqualität ist beeinträchtigt – vermeiden Sie intensive Aktivitäten.';
+      if ((aqData.pm25[peakScore.index] ?? 0) >= KRII_CONFIG.thresholds.pm25_critical) {
+        recommendation += ' Aussenbelastung und intensive Aktivitaet begrenzen.';
       }
 
       await sendDailyWarningEmail(email, {
+        date: peakDate,
         peak_krii: peakScore.krii,
         peak_hour: peakHour,
-        triggers: peakScore.triggers,
+        trigger_details: triggerDetails.slice(0, 3),
         recommendation,
       });
 
