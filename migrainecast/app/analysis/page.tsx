@@ -7,19 +7,23 @@ import { CorrelationTable } from '@/components/analysis/CorrelationTable';
 import { SeverityChart } from '@/components/analysis/SeverityChart';
 import { LagAnalysis } from '@/components/analysis/LagAnalysis';
 import { NeurodivergenceChart } from '@/components/analysis/NeurodivergenceChart';
-import { getMigraineEvents } from '@/lib/supabase';
+import { getMigraineEvents, getUserSettings } from '@/lib/supabase';
 import { MigraineEvent } from '@/types';
+import { Navigation } from '@/components/Navigation';
 
 export default function AnalysisPage() {
   const [events, setEvents] = useState<MigraineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAnalysis = async () => {
       try {
         const fetchedEvents = await getMigraineEvents();
         setEvents(fetchedEvents);
+  const settings = await getUserSettings().catch(() => ({ location_name: null }));
+  setUserLocation(settings.location_name || null);
 
         // Calculate statistics
         const completeEvents = fetchedEvents.filter((e) => e.stage === 'complete');
@@ -85,41 +89,11 @@ export default function AnalysisPage() {
 
   return (
     <div className="app-shell">
-      {/* Navigation */}
-      <nav className="app-nav">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">🧠 MigraineCast</h1>
-          <div className="flex gap-4">
-            <Link
-              href="/"
-              className="nav-link"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/journal"
-              className="nav-link"
-            >
-              Tagebuch
-            </Link>
-            <Link
-              href="/analysis"
-              className="nav-link active"
-            >
-              Analyse
-            </Link>
-            <Link
-              href="/settings"
-              className="nav-link"
-            >
-              Einstellungen
-            </Link>
-          </div>
-        </div>
-      </nav>
 
+      {/* Navigation */}
+      <Navigation showLocationPin={true} locationName={userLocation} />
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto dashboard-container py-8">
         {/* Statistics Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="glass-card p-6">

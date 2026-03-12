@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { getUserSettings, updateUserSetting } from '@/lib/supabase';
 import { UserSettings } from '@/types';
 import { KRII_CONFIG } from '@/lib/krii-config';
+import { Navigation } from '@/components/Navigation';
 
 interface GeocodeApiResult {
   id?: number;
@@ -37,12 +38,14 @@ export default function SettingsPage() {
   const [locationQuery, setLocationQuery] = useState('');
   const [locationSearching, setLocationSearching] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeApiResult[]>([]);
+  const [userLocation, setUserLocation] = useState<string | null>(null);
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const loadedSettings = await getUserSettings();
         setSettings({ ...DEFAULT_SETTINGS, ...loadedSettings });
+        setUserLocation(loadedSettings.location_name || null);
       } catch (error) {
         console.error('Error loading settings:', error);
         setSettings(DEFAULT_SETTINGS);
@@ -133,6 +136,7 @@ export default function SettingsPage() {
         location_name: locationName,
       }));
 
+  setUserLocation(locationName);
       setLocationResults([]);
       setLocationQuery(locationName);
       setMessage({ type: 'success', text: `Standort gespeichert: ${locationName}` });
@@ -209,27 +213,10 @@ export default function SettingsPage() {
 
   return (
     <div className="app-shell">
-      <nav className="app-nav">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">🧠 MigraineCast</h1>
-          <div className="flex gap-4">
-            <Link href="/" className="nav-link">
-              Dashboard
-            </Link>
-            <Link href="/journal" className="nav-link">
-              Tagebuch
-            </Link>
-            <Link href="/analysis" className="nav-link">
-              Analyse
-            </Link>
-            <Link href="/settings" className="nav-link active">
-              Einstellungen
-            </Link>
-          </div>
-        </div>
-      </nav>
+      {/* Navigation */}
+      <Navigation showLocationPin={false} locationName={null} />
 
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto dashboard-container py-8">
         {message && (
           <div
             className={`mb-6 p-4 rounded-2xl border ${

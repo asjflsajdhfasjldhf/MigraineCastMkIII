@@ -18,7 +18,7 @@ export const DailyForecast: React.FC<DailyForecastProps> = ({ data }) => {
       {data.length === 0 ? (
         <p className="text-[var(--text-secondary)]">Keine Daten verfügbar</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="dashboard-forecast-grid">
           {data.slice(0, 5).map((day, idx) => {
             const date = new Date(day.date);
             const dateStr = date.toLocaleDateString('de-DE', {
@@ -32,13 +32,15 @@ export const DailyForecast: React.FC<DailyForecastProps> = ({ data }) => {
                 ? 'var(--accent-high)'
                 : day.krii_level === 'medium'
                   ? 'var(--accent-medium)'
-                  : 'var(--accent-low)';
+                  : 'var(--accent-neutral)';
+
+                const borderColor = day.krii_peak > 0.3 ? riskColor : 'rgba(255, 255, 255, 0.08)';
 
             return (
               <div
                 key={idx}
                 className="glass-card p-4"
-                style={{ borderColor: riskColor }}
+                style={{ borderColor }}
               >
                 <p className="text-sm font-medium mb-3 text-[var(--text-primary)]">{dateStr}</p>
                 <div className="mb-3">

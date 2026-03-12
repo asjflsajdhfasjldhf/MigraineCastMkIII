@@ -42,7 +42,7 @@ export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
                   ? 'text-[var(--accent-high)]'
                   : hour.krii_level === 'medium'
                     ? 'text-[var(--accent-medium)]'
-                    : 'text-[var(--accent-low)]';
+                    : 'text-[var(--accent-neutral)]';
 
               return (
                 <tr

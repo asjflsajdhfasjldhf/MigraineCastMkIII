@@ -17,7 +17,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'low':
-        return 'var(--accent-low)';
+        return 'var(--accent-neutral)';
       case 'medium':
         return 'var(--accent-medium)';
       case 'high':

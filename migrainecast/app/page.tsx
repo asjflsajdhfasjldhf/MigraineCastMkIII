@@ -8,6 +8,7 @@ import { WeatherSummary } from '@/components/dashboard/WeatherSummary';
 import { RiskAlert } from '@/components/dashboard/RiskAlert';
 import { HourlyTable } from '@/components/dashboard/HourlyTable';
 import { DailyForecast } from '@/components/dashboard/DailyForecast';
+import { Navigation } from '@/components/Navigation';
 import {
   EnvironmentSnapshot,
   HourlyForecast,
@@ -32,6 +33,7 @@ export default function DashboardPage() {
     time: string;
     triggers: string[];
   } | null>(null);
+  const [userLocation, setUserLocation] = useState<string | null>(null);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -74,12 +76,21 @@ export default function DashboardPage() {
       try {
         const [{ lat, lon }, settings] = await Promise.all([
           getBrowserCoordinates(),
-          getUserSettings().catch(() => ({ chronotype: 'normal' as const })),
+          getUserSettings().catch(() => ({
+            location_lat: '52.52',
+            location_lon: '13.405',
+            location_name: 'Berlin',
+            email_notifications: 'false',
+            sleep_hours_default: '7.5',
+            chronotype: 'normal' as const,
+          })),
         ]);
 
         const chronotype = settings.chronotype || 'normal';
 
         const weatherBundle = await fetchWeatherBundle(lat, lon).catch(async () => {
+        
+            setUserLocation(settings.location_name || null);
           // Retry once with Berlin fallback if location-based request fails.
           return fetchWeatherBundle(berlinFallback.lat, berlinFallback.lon);
         });
@@ -286,40 +297,10 @@ export default function DashboardPage() {
   return (
     <div className="app-shell">
       {/* Navigation */}
-      <nav className="app-nav">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">🧠 MigraineCast</h1>
-          <div className="flex gap-4">
-            <Link
-              href="/"
-              className="nav-link active"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/journal"
-              className="nav-link"
-            >
-              Tagebuch
-            </Link>
-            <Link
-              href="/analysis"
-              className="nav-link"
-            >
-              Analyse
-            </Link>
-            <Link
-              href="/settings"
-              className="nav-link"
-            >
-              Einstellungen
-            </Link>
-          </div>
-        </div>
-      </nav>
+        <Navigation showLocationPin={true} locationName={userLocation} />
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto dashboard-container py-8">
         {/* Open Migraine Events Alert */}
         {openEvents.length > 0 && (
           <div className="mb-6 glass-card p-4">
@@ -345,7 +326,7 @@ export default function DashboardPage() {
         )}
 
         {/* KRII Indicator and Weather Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="dashboard-grid-2 mb-6">
           <MigraineIndicator kriiValue={kriiValue} riskLevel={riskLevel} />
           {weatherData && (
             <WeatherSummary
@@ -372,7 +353,6 @@ export default function DashboardPage() {
     </div>
   );
 }
-
 function getSeason(date: Date): 'spring' | 'summer' | 'autumn' | 'winter' {
   const month = date.getMonth();
   if (month >= 2 && month <= 4) return 'spring';

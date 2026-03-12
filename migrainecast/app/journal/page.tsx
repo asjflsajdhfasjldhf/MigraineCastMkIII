@@ -10,6 +10,7 @@ import {
 } from '@/components/journal/RetrospectiveJournalForm';
 import { JournalList } from '@/components/journal/JournalList';
 import { EventDetail } from '@/components/journal/EventDetail';
+import { Navigation } from '@/components/Navigation';
 import {
   getMigraineEvents,
   getMigraineEvent,
@@ -40,11 +41,15 @@ export default function JournalPage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+
   useEffect(() => {
     const loadEvents = async () => {
       try {
         const fetchedEvents = await getMigraineEvents();
         setEvents(fetchedEvents);
+          const settings = await getUserSettings().catch(() => ({ location_name: null }));
+          setUserLocation(settings.location_name || null);
         setLoading(false);
       } catch (error) {
         console.error('Error loading events:', error);
@@ -401,41 +406,11 @@ export default function JournalPage() {
 
   return (
     <div className="app-shell">
-      {/* Navigation */}
-      <nav className="app-nav">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">🧠 MigraineCast</h1>
-          <div className="flex gap-4">
-            <Link
-              href="/"
-              className="nav-link"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/journal"
-              className="nav-link active"
-            >
-              Tagebuch
-            </Link>
-            <Link
-              href="/analysis"
-              className="nav-link"
-            >
-              Analyse
-            </Link>
-            <Link
-              href="/settings"
-              className="nav-link"
-            >
-              Einstellungen
-            </Link>
-          </div>
-        </div>
-      </nav>
 
+      {/* Navigation */}
+      <Navigation showLocationPin={true} locationName={userLocation} />
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto dashboard-container py-8">
         <div className="mb-6 flex flex-wrap gap-3">
           <button
             onClick={() => setEntryMode('now')}
