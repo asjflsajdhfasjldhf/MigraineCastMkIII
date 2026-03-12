@@ -51,7 +51,7 @@ export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
                   style={{
                     boxShadow:
                       hour.krii_value > 0.6
-                        ? 'inset 2px 0 0 0 rgba(248, 113, 113, 0.65)'
+                        ? 'inset 2px 0 0 0 color-mix(in oklab, var(--accent-high) 70%, transparent)'
                         : undefined,
                   }}
                 >

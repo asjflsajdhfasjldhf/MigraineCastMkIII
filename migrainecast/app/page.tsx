@@ -9,15 +9,11 @@ import { RiskAlert } from '@/components/dashboard/RiskAlert';
 import { HourlyTable } from '@/components/dashboard/HourlyTable';
 import { DailyForecast } from '@/components/dashboard/DailyForecast';
 import {
-  getCurrentWeather,
-  getHourlyForecast,
-  getDailyForecast,
-} from '@/lib/weather';
-import {
   EnvironmentSnapshot,
   HourlyForecast,
   DailyForecast as DailyForecastType,
   MigraineEvent,
+  WeatherData,
 } from '@/types';
 import { calculateKRII as calculateKRIIValue } from '@/lib/krii';
 import { getUserSettings, getOpenMigraineEvents } from '@/lib/supabase';
@@ -26,7 +22,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [kriiValue, setKriiValue] = useState(0);
   const [riskLevel, setRiskLevel] = useState<'low' | 'medium' | 'high'>('low');
-  const [weatherData, setWeatherData] = useState<any>(null);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [hourlyData, setHourlyData] = useState<HourlyForecast[]>([]);
   const [dailyData, setDailyData] = useState<DailyForecastType[]>([]);
   const [openEvents, setOpenEvents] = useState<MigraineEvent[]>([]);
@@ -39,22 +35,66 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const loadDashboardData = async () => {
+      const berlinFallback = { lat: 52.52, lon: 13.405 };
+
+      const getBrowserCoordinates = async (): Promise<{ lat: number; lon: number }> => {
+        if (!navigator.geolocation) {
+          return berlinFallback;
+        }
+
+        return new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+              });
+            },
+            () => resolve(berlinFallback),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+          );
+        });
+      };
+
+      const fetchWeatherBundle = async (lat: number, lon: number) => {
+        const params = new URLSearchParams({
+          type: 'combined',
+          lat: lat.toString(),
+          lon: lon.toString(),
+        });
+
+        const response = await fetch(`/api/weather?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch combined weather data');
+        }
+
+        return response.json();
+      };
+
       try {
-        // Get user settings for location
-        const settings = await getUserSettings();
-        const lat = parseFloat(settings.location_lat);
-        const lon = parseFloat(settings.location_lon);
-        const chronotype = settings.chronotype;
-
-        // Fetch weather data
-        const weather = await getCurrentWeather(lat, lon);
-        setWeatherData(weather);
-
-        // Fetch hourly and daily forecasts
-        const [hourly, daily] = await Promise.all([
-          getHourlyForecast(lat, lon),
-          getDailyForecast(lat, lon),
+        const [{ lat, lon }, settings] = await Promise.all([
+          getBrowserCoordinates(),
+          getUserSettings().catch(() => ({ chronotype: 'normal' as const })),
         ]);
+
+        const chronotype = settings.chronotype || 'normal';
+
+        const weatherBundle = await fetchWeatherBundle(lat, lon).catch(async () => {
+          // Retry once with Berlin fallback if location-based request fails.
+          return fetchWeatherBundle(berlinFallback.lat, berlinFallback.lon);
+        });
+
+        const weather = {
+          lat,
+          lon,
+          timezone: 'auto',
+          current: weatherBundle.current,
+        };
+
+        const hourly: HourlyForecast[] = weatherBundle.hourly || [];
+        const daily: DailyForecastType[] = weatherBundle.daily || [];
+
+        setWeatherData(weather);
 
         setHourlyData(hourly);
         setDailyData(daily);
@@ -138,10 +178,40 @@ export default function DashboardPage() {
           }
         }
 
-        setHourlyData(hourly);
+        setHourlyData([...hourly]);
+
+        // Calculate daily KRII peak using related hourly windows.
+        const dailyWithRisk = daily.map((day) => {
+          const dayDate = new Date(day.date);
+          const dayStart = new Date(dayDate);
+          dayStart.setHours(0, 0, 0, 0);
+          const dayEnd = new Date(dayDate);
+          dayEnd.setHours(23, 59, 59, 999);
+
+          const dayHours = hourly.filter((hour) => {
+            const hourDate = new Date(hour.time);
+            return hourDate >= dayStart && hourDate <= dayEnd;
+          });
+
+          if (dayHours.length === 0) {
+            return day;
+          }
+
+          const peakHour = dayHours.reduce((currentPeak, hour) =>
+            hour.krii_value > currentPeak.krii_value ? hour : currentPeak
+          );
+
+          return {
+            ...day,
+            krii_peak: peakHour.krii_value,
+            krii_level: peakHour.krii_level,
+          };
+        });
+
+        setDailyData(dailyWithRisk);
 
         // Find peak in next 72 hours
-        if (maxKrii > 0.5) {
+        if (hourly.length > 0 && maxKrii > 0.5) {
           const peakTime = new Date(hourly[peakIndex].time);
           const timeStr = peakTime.toLocaleTimeString('de-DE', {
             hour: '2-digit',

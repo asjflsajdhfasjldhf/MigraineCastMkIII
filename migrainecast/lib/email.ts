@@ -78,6 +78,8 @@ export async function sendDailyWarningEmail(
           .recommendation { background: #ecfdf5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px; }
           .recommendation h3 { margin: 0 0 10px 0; color: #047857; font-size: 14px; text-transform: uppercase; }
           .recommendation p { margin: 0; color: #374151; }
+          .cta-button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; margin: 15px 0; }
+          .cta-button:hover { background: #5568d3; }
           .footer { background: #f3f4f6; padding: 15px 20px; text-align: center; font-size: 12px; color: #6b7280; }
           a { color: #667eea; text-decoration: none; }
           a:hover { text-decoration: underline; }
@@ -116,6 +118,10 @@ export async function sendDailyWarningEmail(
             <div class="recommendation">
               <h3>💡 Empfehlung</h3>
               <p>${recommendation}</p>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/journal" class="cta-button">📝 Attacke jetzt aufzeichnen</a>
             </div>
 
             <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
@@ -166,7 +172,12 @@ export async function sendTestEmail(email: string): Promise<void> {
             <p>Hallo,</p>
             <p>Dies ist eine Test-E-Mail von MigraineCast. Wenn Sie diese E-Mail erhalten haben, funktionieren Ihre E-Mail-Benachrichtigungen korrekt.</p>
             <p>Sie werden ab sofort tägliche Migräne-Risiko-Warnungen erhalten, falls die KRII-Risikovorhersage über 50% liegt.</p>
-            <p>Viel Erfolg mit MigraineCast! 💜</p>
+
+            <div style="text-align: center;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/journal" class="cta-button">📝 Zum Tagebuch</a>
+            </div>
+
+            <p style="margin-top: 20px;">Viel Erfolg mit MigraineCast! 💜</p>
           </div>
 
           <div class="footer">

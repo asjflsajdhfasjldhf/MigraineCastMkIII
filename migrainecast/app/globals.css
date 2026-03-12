@@ -9,9 +9,9 @@
   --text-primary: #f0f0f0;
   --text-secondary: #888888;
   --text-muted: #444444;
-  --accent-low: #4ade80;
-  --accent-medium: #fb923c;
-  --accent-high: #f87171;
+  --accent-low: #86efac;
+  --accent-medium: #fdba74;
+  --accent-high: #fca5a5;
   --accent-neutral: #a3a3a3;
 }
 
@@ -150,7 +150,7 @@ h6 {
 }
 
 .ui-button-danger:hover {
-  background: rgba(248, 113, 113, 0.08);
+  background: color-mix(in oklab, var(--accent-high) 18%, transparent);
 }
 
 .ui-checkbox {

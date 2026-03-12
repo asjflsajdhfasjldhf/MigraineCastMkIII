@@ -4,7 +4,7 @@ import { WeatherData, HourlyForecast, DailyForecast } from '@/types';
 
 const OPEN_METEO_API = 'https://api.open-meteo.com/v1/forecast';
 const OPEN_METEO_ARCHIVE =
-  'https://archive-api.open-meteo.com/v1/archive';
+  'https://archive.open-meteo.com/v1/archive';
 
 interface OpenMeteoResponse {
   latitude: number;
@@ -257,6 +257,73 @@ export async function getHistoricalWeather(
       pressure_48h_ago: null,
       temp_6h_ago: null,
       temp_24h_ago: null,
+    };
+  }
+}
+
+/**
+ * Fetch historical weather values closest to a specific timestamp.
+ */
+export async function getHistoricalPointWeather(
+  lat: number,
+  lon: number,
+  date: Date
+): Promise<{
+  pressure: number | null;
+  temperature: number | null;
+  humidity: number | null;
+  wind_speed: number | null;
+}> {
+  try {
+    const startDate = new Date(date.getTime() - 24 * 60 * 60 * 1000);
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+    const params = new URLSearchParams({
+      latitude: lat.toString(),
+      longitude: lon.toString(),
+      start_date: formatDate(startDate),
+      end_date: formatDate(date),
+      hourly: 'pressure_msl,temperature_2m,relative_humidity_2m,wind_speed_10m',
+      timezone: 'auto',
+    });
+
+    const response = await fetch(`${OPEN_METEO_ARCHIVE}?${params}`);
+    if (!response.ok) throw new Error('Failed to fetch historical point weather');
+
+    const data: OpenMeteoResponse = await response.json();
+    if (!data.hourly || data.hourly.time.length === 0) {
+      return {
+        pressure: null,
+        temperature: null,
+        humidity: null,
+        wind_speed: null,
+      };
+    }
+
+    let closestIndex = 0;
+    let minDiff = Math.abs(new Date(data.hourly.time[0]).getTime() - date.getTime());
+
+    for (let i = 1; i < data.hourly.time.length; i++) {
+      const diff = Math.abs(new Date(data.hourly.time[i]).getTime() - date.getTime());
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIndex = i;
+      }
+    }
+
+    return {
+      pressure: data.hourly.pressure_msl[closestIndex] || null,
+      temperature: data.hourly.temperature_2m[closestIndex] || null,
+      humidity: data.hourly.relative_humidity_2m[closestIndex] || null,
+      wind_speed: data.hourly.wind_speed_10m[closestIndex] || null,
+    };
+  } catch (error) {
+    console.error('Error fetching historical point weather:', error);
+    return {
+      pressure: null,
+      temperature: null,
+      humidity: null,
+      wind_speed: null,
     };
   }
 }

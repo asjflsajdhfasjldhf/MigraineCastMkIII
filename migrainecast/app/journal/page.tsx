@@ -4,6 +4,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { JournalForm } from '@/components/journal/JournalForm';
+import {
+  RetrospectiveEntryData,
+  RetrospectiveJournalForm,
+} from '@/components/journal/RetrospectiveJournalForm';
 import { JournalList } from '@/components/journal/JournalList';
 import { EventDetail } from '@/components/journal/EventDetail';
 import {
@@ -12,19 +16,24 @@ import {
   createMigraineEvent,
   updateMigraineEvent,
   addEnvironmentSnapshot,
-  addPersonalFactors,
   getUserSettings,
 } from '@/lib/supabase';
-import { MigraineEvent, EnvironmentSnapshot, PersonalFactors } from '@/types';
-import { getHistoricalWeather, calculatePressureTrend } from '@/lib/weather';
+import {
+  MigraineEvent,
+  EnvironmentSnapshot,
+  PersonalFactors,
+  Medication,
+} from '@/types';
+import { getHistoricalPointWeather, getHistoricalWeather } from '@/lib/weather';
 import { getHistoricalAirQuality } from '@/lib/air-quality';
 
 export default function JournalPage() {
   const [events, setEvents] = useState<MigraineEvent[]>([]);
+  const [entryMode, setEntryMode] = useState<'now' | 'past'>('now');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<{
     event: MigraineEvent;
-    medications: any[];
+    medications: Medication[];
     environment: EnvironmentSnapshot | null;
     personal: PersonalFactors | null;
   } | null>(null);
@@ -70,7 +79,7 @@ export default function JournalPage() {
 
       if (!selectedEventId) {
         // Create new event
-        const newEvent = await createMigraineEvent(data);
+        const newEvent = await createMigraineEvent(data as any);
         setSelectedEventId(newEvent.id);
         setEvents([newEvent, ...events]);
 
@@ -237,6 +246,148 @@ export default function JournalPage() {
     }
   };
 
+  const saveMedications = async (
+    eventId: string,
+    eventDate: string,
+    medications: Array<{
+      name: string;
+      taken_at: string;
+      dose_mg?: number;
+      effectiveness?: number;
+    }>
+  ) => {
+    for (const med of medications) {
+      if (!med.name || !med.taken_at) continue;
+
+      await fetch('/api/medication', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: eventId,
+          name: med.name,
+          taken_at: convertTimeToISO(eventDate, med.taken_at),
+          dose_mg: med.dose_mg,
+          effectiveness: med.effectiveness,
+        }),
+      });
+    }
+  };
+
+  const savePersonalFactors = async (
+    eventId: string,
+    data: RetrospectiveEntryData
+  ) => {
+    await fetch('/api/personal-factors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_id: eventId,
+        sleep_hours: data.sleep_hours,
+        sleep_bedtime: data.sleep_bedtime,
+        sleep_waketime: data.sleep_waketime,
+        stress_level: data.stress_level,
+        alcohol_yesterday: data.alcohol_yesterday,
+        caffeine_withdrawal: data.caffeine_withdrawal,
+        meals_regular: data.meals_regular,
+        hydration: data.hydration,
+        sensory_overload: data.sensory_overload,
+        masking_intensity: data.masking_intensity,
+        social_exhaustion: data.social_exhaustion,
+        overstimulation: data.overstimulation,
+      }),
+    });
+  };
+
+  const handleSaveRetrospective = async (data: RetrospectiveEntryData) => {
+    try {
+      setIsSaving(true);
+
+      const newEvent = await createMigraineEvent({
+        started_at: data.started_at,
+        ended_at: data.ended_at,
+        recovery_hours: data.recovery_hours,
+        severity: data.severity,
+        symptoms: data.symptoms,
+        prodromal_symptoms: data.prodromal_symptoms,
+        notes: data.notes || null,
+        krii_value: null,
+        stage: 'complete',
+      });
+
+      setSelectedEventId(newEvent.id);
+      setEvents([newEvent, ...events]);
+
+      const settings = await getUserSettings();
+      const lat = parseFloat(settings.location_lat);
+      const lon = parseFloat(settings.location_lon);
+      const startedAtDate = new Date(data.started_at);
+
+      const [historicalLag, historicalPoint, aqData] = await Promise.all([
+        getHistoricalWeather(lat, lon, startedAtDate),
+        getHistoricalPointWeather(lat, lon, startedAtDate),
+        getHistoricalAirQuality(lat, lon, startedAtDate),
+      ]);
+
+      const pressureChange6h =
+        historicalPoint.pressure !== null && historicalLag.pressure_6h_ago !== null
+          ? historicalPoint.pressure - historicalLag.pressure_6h_ago
+          : null;
+      const pressureChange24h =
+        historicalPoint.pressure !== null && historicalLag.pressure_24h_ago !== null
+          ? historicalPoint.pressure - historicalLag.pressure_24h_ago
+          : null;
+      const tempChange6h =
+        historicalPoint.temperature !== null && historicalLag.temp_6h_ago !== null
+          ? historicalPoint.temperature - historicalLag.temp_6h_ago
+          : null;
+
+      const pressureTrend =
+        pressureChange6h === null
+          ? null
+          : pressureChange6h < -1
+            ? 'falling'
+            : pressureChange6h > 1
+              ? 'rising'
+              : 'stable';
+
+      const env: EnvironmentSnapshot = {
+        id: '',
+        event_id: newEvent.id,
+        recorded_at: data.started_at,
+        lat,
+        lon,
+        pressure: historicalPoint.pressure,
+        pressure_trend: pressureTrend,
+        pressure_change_6h: pressureChange6h,
+        pressure_change_24h: pressureChange24h,
+        pressure_6h_ago: historicalLag.pressure_6h_ago,
+        pressure_12h_ago: historicalLag.pressure_12h_ago,
+        pressure_24h_ago: historicalLag.pressure_24h_ago,
+        pressure_48h_ago: historicalLag.pressure_48h_ago,
+        temperature: historicalPoint.temperature,
+        temperature_absolute: historicalPoint.temperature,
+        temp_change_6h: tempChange6h,
+        humidity: historicalPoint.humidity,
+        wind_speed: historicalPoint.wind_speed,
+        uv_index: null,
+        air_quality_pm25: aqData.pm25,
+        air_quality_no2: aqData.no2,
+        air_quality_ozone: aqData.ozone,
+        hour_of_day: startedAtDate.getHours(),
+        season: getSeason(startedAtDate),
+        created_at: new Date().toISOString(),
+      };
+
+      await addEnvironmentSnapshot(env);
+      await saveMedications(newEvent.id, data.started_at, data.medications);
+      await savePersonalFactors(newEvent.id, data);
+    } catch (error) {
+      console.error('Error saving retrospective event:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="app-shell flex items-center justify-center">
@@ -285,14 +436,39 @@ export default function JournalPage() {
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="mb-6 flex flex-wrap gap-3">
+          <button
+            onClick={() => setEntryMode('now')}
+            className={`ui-button ${entryMode === 'now' ? 'border-[var(--accent-low)]' : ''}`}
+          >
+            Jetzt aufzeichnen
+          </button>
+          <button
+            onClick={() => {
+              setSelectedEventId(null);
+              setEntryMode('past');
+            }}
+            className={`ui-button ${entryMode === 'past' ? 'border-[var(--accent-medium)]' : ''}`}
+          >
+            Vergangene Attacke eintragen
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Form */}
           <div className="lg:col-span-2">
-            <JournalForm
-              event={selectedEvent?.event || null}
-              onSave={handleSaveForm}
-              isLoading={isSaving}
-            />
+            {entryMode === 'now' ? (
+              <JournalForm
+                event={selectedEvent?.event || null}
+                onSave={handleSaveForm}
+                isLoading={isSaving}
+              />
+            ) : (
+              <RetrospectiveJournalForm
+                onSave={handleSaveRetrospective}
+                isLoading={isSaving}
+              />
+            )}
           </div>
 
           {/* List */}
