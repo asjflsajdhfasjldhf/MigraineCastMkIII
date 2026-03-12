@@ -13,13 +13,6 @@ export const Navigation: React.FC = () => {
   const [locationName, setLocationName] = useState<string | null>(null);
 
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : '';
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [menuOpen]);
-
-  useEffect(() => {
     let mounted = true;
 
     const loadLocation = async () => {
@@ -113,6 +106,43 @@ export const Navigation: React.FC = () => {
             >
               ⋮
             </button>
+
+            {menuOpen && (
+              <div className="dots-dropdown" role="menu" aria-label="Hauptmenü">
+                <div className="dots-dropdown-inner">
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`dots-dropdown-link ${isActive(item.href) ? 'active' : ''}`}
+                      onClick={handleLinkClick}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                  {locationName && (
+                    <Link href="/settings" className="location-pin nav-location-row" onClick={handleLinkClick}>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M12 22C12 22 19 15.5455 19 10C19 6.13401 15.866 3 12 3C8.13401 3 5 6.13401 5 10C5 15.5455 12 22 12 22Z"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                        />
+                        <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.6" />
+                      </svg>
+                      <span>{locationName}</span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </nav>
@@ -126,40 +156,6 @@ export const Navigation: React.FC = () => {
             onClick={() => setMenuOpen(false)}
             aria-hidden="true"
           />
-          <div className="dots-dropdown" role="menu" aria-label="Hauptmenü">
-            <div className="dots-dropdown-inner">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`dots-dropdown-link ${isActive(item.href) ? 'active' : ''}`}
-                  onClick={handleLinkClick}
-                >
-                  {item.label}
-                </Link>
-              ))}
-              {locationName && (
-                <Link href="/settings" className="location-pin nav-location-row" onClick={handleLinkClick}>
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 22C12 22 19 15.5455 19 10C19 6.13401 15.866 3 12 3C8.13401 3 5 6.13401 5 10C5 15.5455 12 22 12 22Z"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                    />
-                    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.6" />
-                  </svg>
-                  <span>{locationName}</span>
-                </Link>
-              )}
-            </div>
-          </div>
         </>
       )}
     </>

@@ -27,11 +27,10 @@ interface PersonalRow {
 }
 
 interface MonthlyStats {
-  lastAttackDays: number | null;
   lastAttackDateLabel: string | null;
   thisMonthCount: number;
   avgPerMonth: number;
-  longestMigraineFree: number;
+  migraineDaysCurrentYear: number;
 }
 
 const toLocalDateKey = (value: string | Date): string => {
@@ -134,11 +133,10 @@ export default function HistoryPage() {
   const monthlyStats = useMemo<MonthlyStats>(() => {
     if (timelineEvents.length === 0) {
       return {
-        lastAttackDays: null,
         lastAttackDateLabel: null,
         thisMonthCount: 0,
         avgPerMonth: 0,
-        longestMigraineFree: 0,
+        migraineDaysCurrentYear: 0,
       };
     }
 
@@ -148,9 +146,6 @@ export default function HistoryPage() {
     const newest = sortedAsc[sortedAsc.length - 1];
     const newestDate = new Date(newest.started_at);
     const now = new Date();
-    const lastAttackDays = Math.max(0, Math.floor(
-      (now.getTime() - newestDate.getTime()) / (1000 * 60 * 60 * 24)
-    ));
     const lastAttackDateLabel = newestDate.toLocaleDateString('de-DE', {
       day: '2-digit',
       month: 'long',
@@ -164,6 +159,11 @@ export default function HistoryPage() {
       return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
     }).length;
 
+    const migraineDaysCurrentYear = timelineEvents.filter((event) => {
+      const d = new Date(event.started_at);
+      return d.getFullYear() === thisYear;
+    }).length;
+
     const byMonth = new Map<string, number>();
     timelineEvents.forEach((event) => {
       const d = new Date(event.started_at);
@@ -175,22 +175,11 @@ export default function HistoryPage() {
       ? Array.from(byMonth.values()).reduce((sum, value) => sum + value, 0) / byMonth.size
       : 0;
 
-    let longestMigraineFree = 0;
-    for (let i = 1; i < sortedAsc.length; i++) {
-      const prev = new Date(sortedAsc[i - 1].started_at).getTime();
-      const curr = new Date(sortedAsc[i].started_at).getTime();
-      const diffDays = Math.floor((curr - prev) / (1000 * 60 * 60 * 24));
-      if (diffDays > longestMigraineFree) {
-        longestMigraineFree = diffDays;
-      }
-    }
-
     return {
-      lastAttackDays,
       lastAttackDateLabel,
       thisMonthCount,
       avgPerMonth,
-      longestMigraineFree,
+      migraineDaysCurrentYear,
     };
   }, [timelineEvents]);
 
@@ -392,9 +381,7 @@ export default function HistoryPage() {
             <div className="glass-card p-4">
               <p className="text-xs text-[var(--text-secondary)] mb-1">Letzte Attacke</p>
               <p className="text-2xl font-medium">
-                {monthlyStats.lastAttackDays !== null && monthlyStats.lastAttackDateLabel
-                  ? `${monthlyStats.lastAttackDateLabel} (vor ${monthlyStats.lastAttackDays} Tagen)`
-                  : '—'}
+                {monthlyStats.lastAttackDateLabel || '—'}
               </p>
             </div>
             <div className="glass-card p-4">
@@ -406,8 +393,8 @@ export default function HistoryPage() {
               <p className="text-2xl font-medium">{monthlyStats.avgPerMonth.toFixed(1)} / Monat</p>
             </div>
             <div className="glass-card p-4">
-                <p className="text-xs text-[var(--text-secondary)] mb-1">Längste migränefreie Phase</p>
-              <p className="text-2xl font-medium">{monthlyStats.longestMigraineFree} Tage</p>
+              <p className="text-xs text-[var(--text-secondary)] mb-1">Migränetage im Jahr</p>
+              <p className="text-2xl font-medium">{monthlyStats.migraineDaysCurrentYear}</p>
             </div>
           </div>
         </section>

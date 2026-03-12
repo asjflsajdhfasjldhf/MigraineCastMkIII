@@ -110,6 +110,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasPersonalFactors, setHasPersonalFactors] = useState(false);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -138,11 +139,19 @@ export default function SettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const loadedSettings = await getUserSettings();
+        const [loadedSettings, personalCountResult] = await Promise.all([
+          getUserSettings(),
+          supabase
+            .from('personal_factors')
+            .select('event_id', { count: 'exact', head: true }),
+        ]);
+
         setSettings({ ...DEFAULT_SETTINGS, ...loadedSettings });
+        setHasPersonalFactors((personalCountResult.count || 0) > 0);
       } catch (error) {
         console.error('Error loading settings:', error);
         setSettings(DEFAULT_SETTINGS);
+        setHasPersonalFactors(false);
         setMessage({
           type: 'error',
           text: 'Einstellungen konnten nicht geladen werden. Fallback: Berlin/Standardwerte.',
@@ -698,14 +707,22 @@ export default function SettingsPage() {
 
             <div>
               <p className="font-medium text-white mb-2">Persoenliche Gewichtungen (Read-only)</p>
-              <div className="pl-4 space-y-2">
-                {Object.entries(KRII_CONFIG.weights.personal).map(([key, value]) => (
-                  <p key={key}>
-                    <span className="text-[var(--text-primary)]">{key.replace('_', ' ')}:</span>{' '}
-                    {(value * 100).toFixed(0)}% - {factorDescriptions[key]}
+              {hasPersonalFactors ? (
+                <div className="pl-4 space-y-2">
+                  {Object.entries(KRII_CONFIG.weights.personal).map(([key, value]) => (
+                    <p key={key}>
+                      <span className="text-[var(--text-primary)]">{key.replace('_', ' ')}:</span>{' '}
+                      {(value * 100).toFixed(0)}% - {factorDescriptions[key]}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <div className="pl-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <p className="text-[var(--text-muted)]">
+                    Noch keine persoenlichen Faktoren erfasst - Standard-Gewichtungen werden genutzt (erscheinen sobald erste Eintraege im Journal gemacht werden)
                   </p>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
 
             <div>

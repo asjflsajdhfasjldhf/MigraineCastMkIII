@@ -132,6 +132,7 @@ h6 {
 }
 
 .nav-right-tools {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -180,10 +181,11 @@ h6 {
 }
 
 .dots-dropdown {
-  position: fixed;
-  top: 64px;
-  right: 1rem;
-  z-index: 998;
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  left: auto;
+  z-index: 60;
 }
 
 .dots-dropdown-inner {
