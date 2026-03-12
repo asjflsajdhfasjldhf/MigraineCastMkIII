@@ -2,7 +2,7 @@
 
 import { AirQualityData } from '@/types';
 
-const OPEN_METEO_API = 'https://api.open-meteo.com/v1/air-quality';
+const OPEN_METEO_API = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const OPEN_METEO_ARCHIVE =
   'https://archive-api.open-meteo.com/v1/archive';
 
@@ -14,18 +14,21 @@ interface OpenMeteoAirQualityResponse {
   hourly?: {
     time: string[];
     pm2_5: number[];
-    no2: number[];
+    nitrogen_dioxide: number[];
     ozone: number[];
     uv_index: number[];
   };
   current?: {
     time: string;
     pm2_5: number;
-    no2: number;
+    nitrogen_dioxide: number;
     ozone: number;
     uv_index: number;
   };
 }
+
+const toNullableNumber = (value: number | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
 
 /**
  * Fetch current air quality
@@ -43,8 +46,7 @@ export async function getCurrentAirQuality(
     const params = new URLSearchParams({
       latitude: lat.toString(),
       longitude: lon.toString(),
-      current: 'pm2_5,no2,ozone,uv_index',
-      hourly: 'uv_index',
+      current: 'pm2_5,nitrogen_dioxide,ozone,uv_index',
       timezone: 'auto',
     });
 
@@ -54,10 +56,10 @@ export async function getCurrentAirQuality(
     const data: OpenMeteoAirQualityResponse = await response.json();
 
     return {
-      pm25: data.current?.pm2_5 || null,
-      no2: data.current?.no2 || null,
-      ozone: data.current?.ozone || null,
-      uv_index: data.current?.uv_index || null,
+      pm25: toNullableNumber(data.current?.pm2_5),
+      no2: toNullableNumber(data.current?.nitrogen_dioxide),
+      ozone: toNullableNumber(data.current?.ozone),
+      uv_index: toNullableNumber(data.current?.uv_index),
     };
   } catch (error) {
     console.error('Error fetching current air quality:', error);
@@ -87,7 +89,7 @@ export async function getHourlyAirQuality(
     const params = new URLSearchParams({
       latitude: lat.toString(),
       longitude: lon.toString(),
-      hourly: 'pm2_5,no2,ozone,uv_index',
+      hourly: 'pm2_5,nitrogen_dioxide,ozone,uv_index',
       timezone: 'auto',
       forecast_days: '3',
     });
@@ -110,7 +112,7 @@ export async function getHourlyAirQuality(
     return {
       time: data.hourly.time || [],
       pm25: data.hourly.pm2_5 || [],
-      no2: data.hourly.no2 || [],
+      no2: data.hourly.nitrogen_dioxide || [],
       ozone: data.hourly.ozone || [],
       uv_index: data.hourly.uv_index || [],
     };
@@ -149,7 +151,7 @@ export async function getHistoricalAirQuality(
       longitude: lon.toString(),
       start_date: formatDate(start_date),
       end_date: formatDate(end_date),
-      hourly: 'pm2_5,no2,ozone',
+      hourly: 'pm2_5,nitrogen_dioxide,ozone',
       timezone: 'auto',
     });
 
@@ -170,9 +172,9 @@ export async function getHistoricalAirQuality(
     const lastIndex = data.hourly.pm2_5.length - 1;
 
     return {
-      pm25: data.hourly.pm2_5[lastIndex] || null,
-      no2: data.hourly.no2[lastIndex] || null,
-      ozone: data.hourly.ozone[lastIndex] || null,
+      pm25: toNullableNumber(data.hourly.pm2_5[lastIndex]),
+      no2: toNullableNumber(data.hourly.nitrogen_dioxide[lastIndex]),
+      ozone: toNullableNumber(data.hourly.ozone[lastIndex]),
     };
   } catch (error) {
     console.error('Error fetching historical air quality:', error);

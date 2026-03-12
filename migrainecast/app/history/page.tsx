@@ -27,6 +27,21 @@ interface PersonalRow {
   overstimulation: number | null;
 }
 
+const toLocalDateKey = (value: string | Date): string => {
+  const date = value instanceof Date ? value : new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getCalendarSeverityBackground = (severity: number | null): string => {
+  if (severity === null) return 'rgba(255, 255, 255, 0.02)';
+  if (severity <= 4) return 'rgba(248, 113, 113, 0.20)';
+  if (severity <= 7) return 'rgba(248, 113, 113, 0.38)';
+  return 'rgba(248, 113, 113, 0.58)';
+};
+
 export default function HistoryPage() {
   const [events, setEvents] = useState<MigraineEvent[]>([]);
   const [envRows, setEnvRows] = useState<EnvRow[]>([]);
@@ -96,13 +111,13 @@ export default function HistoryPage() {
     load();
   }, []);
 
-  const completeEvents = useMemo(
-    () => events.filter((event) => event.stage === 'complete'),
+  const timelineEvents = useMemo(
+    () => events.filter((event) => Boolean(event.started_at)),
     [events]
   );
 
   const monthlyStats = useMemo(() => {
-    if (completeEvents.length === 0) {
+    if (timelineEvents.length === 0) {
       return {
         lastAttackDays: null,
         thisMonthCount: 0,
@@ -111,24 +126,24 @@ export default function HistoryPage() {
       };
     }
 
-    const sortedAsc = [...completeEvents].sort(
+    const sortedAsc = [...timelineEvents].sort(
       (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
     );
     const newest = sortedAsc[sortedAsc.length - 1];
     const now = new Date();
-    const lastAttackDays = Math.floor(
+    const lastAttackDays = Math.max(0, Math.floor(
       (now.getTime() - new Date(newest.started_at).getTime()) / (1000 * 60 * 60 * 24)
-    );
+    ));
 
     const thisMonth = now.getMonth();
     const thisYear = now.getFullYear();
-    const thisMonthCount = completeEvents.filter((event) => {
+    const thisMonthCount = timelineEvents.filter((event) => {
       const d = new Date(event.started_at);
       return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
     }).length;
 
     const byMonth = new Map<string, number>();
-    completeEvents.forEach((event) => {
+    timelineEvents.forEach((event) => {
       const d = new Date(event.started_at);
       const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
       byMonth.set(key, (byMonth.get(key) || 0) + 1);
@@ -154,10 +169,10 @@ export default function HistoryPage() {
       avgPerMonth,
       longestMigraineFree,
     };
-  }, [completeEvents]);
+  }, [timelineEvents]);
 
   const triggerStats = useMemo(() => {
-    if (completeEvents.length === 0 || envRows.length === 0) return [] as Array<{ name: string; pct: number }>;
+    if (timelineEvents.length === 0 || envRows.length === 0) return [] as Array<{ name: string; pct: number }>;
 
     const counter = new Map<string, number>();
 
@@ -176,16 +191,16 @@ export default function HistoryPage() {
     return Array.from(counter.entries())
       .map(([name, count]) => ({
         name,
-        pct: (count / completeEvents.length) * 100,
+        pct: (count / timelineEvents.length) * 100,
       }))
       .sort((a, b) => b.pct - a.pct)
       .slice(0, 5);
-  }, [completeEvents, envRows]);
+  }, [timelineEvents, envRows]);
 
   const symptomStats = useMemo(() => {
     const counter = new Map<string, number>();
 
-    completeEvents.forEach((event) => {
+    timelineEvents.forEach((event) => {
       event.symptoms.forEach((symptom) => {
         counter.set(symptom, (counter.get(symptom) || 0) + 1);
       });
@@ -195,7 +210,7 @@ export default function HistoryPage() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
-  }, [completeEvents]);
+  }, [timelineEvents]);
 
   const medicationStats = useMemo(() => {
     const grouped = new Map<string, { sum: number; count: number }>();
@@ -244,8 +259,8 @@ export default function HistoryPage() {
     const startOffset = (firstDay.getDay() + 6) % 7;
 
     const byDate = new Map<string, MigraineEvent[]>();
-    completeEvents.forEach((event) => {
-      const dateKey = new Date(event.started_at).toISOString().slice(0, 10);
+    timelineEvents.forEach((event) => {
+      const dateKey = toLocalDateKey(event.started_at);
       const list = byDate.get(dateKey) || [];
       list.push(event);
       byDate.set(dateKey, list);
@@ -258,7 +273,7 @@ export default function HistoryPage() {
 
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const key = date.toISOString().slice(0, 10);
+      const key = toLocalDateKey(date);
       const entries = byDate.get(key) || [];
       const maxSeverity = entries.length > 0
         ? Math.max(...entries.map((entry) => entry.severity))
@@ -278,7 +293,28 @@ export default function HistoryPage() {
       cells,
       byDate,
     };
-  }, [completeEvents, visibleMonthDate]);
+  }, [timelineEvents, visibleMonthDate]);
+
+  const earliestMonthDate = useMemo(() => {
+    if (timelineEvents.length === 0) return null;
+
+    const earliest = timelineEvents.reduce((acc, event) => {
+      const current = new Date(event.started_at).getTime();
+      return current < acc ? current : acc;
+    }, Number.POSITIVE_INFINITY);
+
+    const earliestDate = new Date(earliest);
+    return new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
+  }, [timelineEvents]);
+
+  const canGoPrevMonth = useMemo(() => {
+    if (!earliestMonthDate) return false;
+    return (
+      visibleMonthDate.getFullYear() > earliestMonthDate.getFullYear() ||
+      (visibleMonthDate.getFullYear() === earliestMonthDate.getFullYear() &&
+        visibleMonthDate.getMonth() > earliestMonthDate.getMonth())
+    );
+  }, [visibleMonthDate, earliestMonthDate]);
 
   const canGoNextMonth = useMemo(() => {
     const now = new Date();
@@ -298,7 +334,7 @@ export default function HistoryPage() {
   const monthlySeveritySeries = useMemo(() => {
     const grouped = new Map<string, { sum: number; count: number }>();
 
-    completeEvents.forEach((event) => {
+    timelineEvents.forEach((event) => {
       const d = new Date(event.started_at);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const current = grouped.get(key) || { sum: 0, count: 0 };
@@ -308,7 +344,7 @@ export default function HistoryPage() {
     return Array.from(grouped.entries())
       .map(([month, value]) => ({ month, avg: value.sum / value.count }))
       .sort((a, b) => a.month.localeCompare(b.month));
-  }, [completeEvents]);
+  }, [timelineEvents]);
 
   if (loading) {
     return (
@@ -357,7 +393,9 @@ export default function HistoryPage() {
             <button
               type="button"
               className="ui-button"
+              disabled={!canGoPrevMonth}
               onClick={() => {
+                if (!canGoPrevMonth) return;
                 const prev = new Date(visibleMonthDate);
                 prev.setMonth(prev.getMonth() - 1);
                 setVisibleMonthDate(new Date(prev.getFullYear(), prev.getMonth(), 1));
@@ -389,9 +427,8 @@ export default function HistoryPage() {
 
           <div className="grid grid-cols-7 gap-2">
             {calendarData.cells.map((cell, idx) => {
-              const intensity = cell.severity ? Math.min(0.12 + cell.severity * 0.06, 0.62) : 0;
               const isSelected = cell.date && selectedDate === cell.date;
-              const today = new Date().toISOString().slice(0, 10);
+              const today = toLocalDateKey(new Date());
               const isToday = cell.date === today;
 
               return (
@@ -408,11 +445,11 @@ export default function HistoryPage() {
                         ? 'var(--text-primary)'
                         : 'rgba(255, 255, 255, 0.08)',
                     background: cell.severity
-                      ? `rgba(252, 165, 165, ${intensity})`
-                      : 'rgba(255, 255, 255, 0.02)',
+                      ? getCalendarSeverityBackground(cell.severity)
+                      : getCalendarSeverityBackground(null),
                   }}
                 >
-                  {cell.date ? new Date(cell.date).getDate() : ''}
+                  {cell.date ? Number(cell.date.slice(-2)) : ''}
                 </button>
               );
             })}

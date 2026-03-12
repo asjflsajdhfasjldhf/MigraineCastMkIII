@@ -364,9 +364,9 @@ export default function DashboardPage() {
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
         {/* Open Migraine Events Alert */}
         {openEvents.length > 0 && (
-          <div className="mb-6 glass-card p-4">
-            <p className="text-[var(--text-primary)] font-medium">
-              ℹ️ Sie haben {openEvents.length} offene Migräneereignis(se).
+          <div className="mb-6 p-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-transparent">
+            <p className="text-[13px] text-[rgba(255,255,255,0.5)]">
+              Hinweis: Sie haben {openEvents.length} offene Migräneereignis(se).
               Besuchen Sie das{' '}
               <Link href="/journal" className="underline text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                 Tagebuch

@@ -32,13 +32,28 @@ export async function GET(request: NextRequest) {
         getHourlyAirQuality(lat, lon),
       ]);
 
-      const mergedHourly = hourly.map((hour, index) => ({
-        ...hour,
-        uv_index: aqHourly.uv_index[index] ?? hour.uv_index ?? null,
-        pm25: aqHourly.pm25[index] ?? hour.pm25 ?? null,
-        no2: aqHourly.no2[index] ?? null,
-        ozone: aqHourly.ozone[index] ?? null,
-      }));
+      const aqByTime = new Map(
+        aqHourly.time.map((time, index) => [
+          time,
+          {
+            uv_index: aqHourly.uv_index[index] ?? null,
+            pm25: aqHourly.pm25[index] ?? null,
+            no2: aqHourly.no2[index] ?? null,
+            ozone: aqHourly.ozone[index] ?? null,
+          },
+        ])
+      );
+
+      const mergedHourly = hourly.map((hour, index) => {
+        const aqMatch = aqByTime.get(hour.time);
+        return {
+          ...hour,
+          uv_index: aqMatch?.uv_index ?? aqHourly.uv_index[index] ?? hour.uv_index ?? null,
+          pm25: aqMatch?.pm25 ?? aqHourly.pm25[index] ?? hour.pm25 ?? null,
+          no2: aqMatch?.no2 ?? aqHourly.no2[index] ?? null,
+          ozone: aqMatch?.ozone ?? aqHourly.ozone[index] ?? null,
+        };
+      });
 
       return NextResponse.json({
         current: {

@@ -54,8 +54,8 @@ export const NeurodivergenceChart: React.FC<NeurodivergenceChartProps> = ({
         </div>
       )}
 
-      <div className="mt-6 p-4 border border-white/10 bg-white/[0.03] rounded-xl text-xs text-[var(--text-secondary)]">
-        <p className="font-medium mb-2">ℹ️ Hinweis:</p>
+      <div className="mt-6 p-4 rounded-xl border border-[rgba(255,255,255,0.08)] bg-transparent text-[13px] text-[rgba(255,255,255,0.5)]">
+        <p className="font-medium mb-2">Hinweis:</p>
         <p>
           Diese Analyse zeigt, wie stark neurodivergenzbedingte Faktoren mit
           Ihren Migräneereignissen korrelieren. Das hilft bei der Planung und

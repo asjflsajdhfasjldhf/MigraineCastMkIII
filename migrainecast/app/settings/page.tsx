@@ -468,15 +468,13 @@ export default function SettingsPage() {
               disabled={backfillRunning || saving}
               className="ui-button w-full disabled:opacity-50"
             >
-              {backfillRunning
-                ? 'Nachladen laeuft...'
-                : 'Wetterdaten fuer historische Eintraege nachladen'}
+              {backfillRunning ? 'Wetterdaten werden nachgeladen...' : 'Wetterdaten nachladen'}
             </button>
 
             {backfillProgress && (
               <div className="text-sm text-[var(--text-secondary)]">
                 <p>
-                  {backfillProgress.processed} von {backfillProgress.total} Eintraegen verarbeitet
+                  {backfillProgress.processed} von {backfillProgress.total} verarbeitet
                 </p>
                 <p>
                   Erfolgreich: {backfillProgress.success} | Fehler: {backfillProgress.failed}

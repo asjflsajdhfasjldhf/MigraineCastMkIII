@@ -132,9 +132,9 @@ export default function AnalysisPage() {
 
         {/* Data Message */}
         {stats?.totalEvents < 10 && (
-          <div className="glass-card p-4 mb-6">
-            <p className="text-[var(--text-secondary)] text-sm">
-              <span className="font-medium">ℹ️ Hinweis:</span> Sie haben{' '}
+          <div className="p-4 mb-6 rounded-xl border border-white/10 bg-transparent">
+            <p className="text-[13px] text-white/50">
+              <span className="font-medium">Hinweis:</span> Sie haben{' '}
               {stats?.totalEvents || 0} Einträge. Ab etwa 50 Einträgen können
               detailliertere Analysen und ein personalisiertes ML-Modell
               trainiert werden.
