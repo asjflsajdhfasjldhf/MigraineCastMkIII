@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 interface AppGateProps {
   children: React.ReactNode;
@@ -16,6 +16,35 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
   const [isFading, setIsFading] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [rememberFor30Days, setRememberFor30Days] = useState(true);
+
+  const submitByKeyboard = useCallback(() => {
+    if (entered.length !== 4 || isFading) return;
+
+    if (entered === PIN) {
+      try {
+        if (rememberFor30Days) {
+          localStorage.setItem(PIN_STORAGE_KEY, Date.now().toString());
+        } else {
+          localStorage.removeItem(PIN_STORAGE_KEY);
+        }
+      } catch (error) {
+        console.error('Error writing PIN persistence to localStorage:', error);
+      }
+
+      setIsFading(true);
+      window.setTimeout(() => {
+        setIsUnlocked(true);
+        setIsFading(false);
+      }, 260);
+      return;
+    }
+
+    setIsShaking(true);
+    window.setTimeout(() => {
+      setEntered('');
+      setIsShaking(false);
+    }, 360);
+  }, [entered, isFading, rememberFor30Days]);
 
   useEffect(() => {
     try {
@@ -38,6 +67,36 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
       console.error('Error reading PIN persistence from localStorage:', error);
     }
   }, []);
+
+  useEffect(() => {
+    if (isUnlocked) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isFading) return;
+
+      if (event.key >= '0' && event.key <= '9') {
+        event.preventDefault();
+        pushDigit(event.key);
+        return;
+      }
+
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        event.preventDefault();
+        deleteDigit();
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submitByKeyboard();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isUnlocked, isFading, entered, submitByKeyboard]);
 
   const pushDigit = (digit: string) => {
     if (entered.length >= 4 || isFading) {
@@ -87,7 +146,9 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
       {!isUnlocked && (
         <div className={`pin-overlay ${isFading ? 'fade-out' : ''}`}>
           <div className={`pin-card ${isShaking ? 'shake' : ''}`}>
+            <p className="pin-eyebrow">SECURE ACCESS</p>
             <h1 className="pin-title">MigraineCast</h1>
+            <p className="pin-subtitle">PIN eingeben · Tastatur: 0-9, Backspace</p>
             <div className="pin-dots" aria-label="PIN status">
               {[0, 1, 2, 3].map((idx) => (
                 <span key={idx} className={`pin-dot ${idx < entered.length ? 'filled' : ''}`}>

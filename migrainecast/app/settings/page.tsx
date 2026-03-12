@@ -17,6 +17,13 @@ interface GeocodeApiResult {
   country?: string;
 }
 
+interface BackfillProgress {
+  total: number;
+  processed: number;
+  success: number;
+  failed: number;
+}
+
 const DEFAULT_SETTINGS: UserSettings = {
   location_lat: '52.52',
   location_lon: '13.405',
@@ -39,6 +46,8 @@ export default function SettingsPage() {
   const [locationSearching, setLocationSearching] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeApiResult[]>([]);
   const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [backfillRunning, setBackfillRunning] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<BackfillProgress | null>(null);
 
   const handleNumericEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter') return;
@@ -191,6 +200,83 @@ export default function SettingsPage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleBackfillWeather = async () => {
+    try {
+      setBackfillRunning(true);
+      setMessage(null);
+      setBackfillProgress({ total: 0, processed: 0, success: 0, failed: 0 });
+
+      const response = await fetch('/api/backfill-weather', {
+        method: 'POST',
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error('Backfill-Route konnte nicht gestartet werden.');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line) continue;
+
+          const payload = JSON.parse(line) as {
+            type: 'start' | 'progress' | 'done' | 'event-error' | 'fatal-error';
+            total?: number;
+            processed?: number;
+            success?: number;
+            failed?: number;
+            error?: string;
+          };
+
+          if (payload.type === 'fatal-error') {
+            throw new Error(payload.error || 'Unbekannter Fehler beim Backfill.');
+          }
+
+          if (payload.type === 'start' || payload.type === 'progress' || payload.type === 'done') {
+            setBackfillProgress({
+              total: payload.total || 0,
+              processed: payload.processed || 0,
+              success: payload.success || 0,
+              failed: payload.failed || 0,
+            });
+
+            if (payload.type === 'done') {
+              const total = payload.total || 0;
+              const success = payload.success || 0;
+              const failed = payload.failed || 0;
+              setMessage({
+                type: failed > 0 ? 'error' : 'success',
+                text:
+                  failed > 0
+                    ? `Backfill abgeschlossen: ${success} von ${total} gespeichert, ${failed} Fehler.`
+                    : `Backfill abgeschlossen: ${success} von ${total} gespeichert.`,
+              });
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error running weather backfill:', error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Backfill fehlgeschlagen.',
+      });
+    } finally {
+      setBackfillRunning(false);
     }
   };
 
@@ -370,6 +456,33 @@ export default function SettingsPage() {
             >
               {saving ? 'Sende...' : 'Test-E-Mail senden'}
             </button>
+          </div>
+        </div>
+
+        <div className="glass-card p-6 mb-6">
+          <h2 className="text-xl font-semibold text-white mb-4">Datenpflege</h2>
+
+          <div className="space-y-3">
+            <button
+              onClick={handleBackfillWeather}
+              disabled={backfillRunning || saving}
+              className="ui-button w-full disabled:opacity-50"
+            >
+              {backfillRunning
+                ? 'Nachladen laeuft...'
+                : 'Wetterdaten fuer historische Eintraege nachladen'}
+            </button>
+
+            {backfillProgress && (
+              <div className="text-sm text-[var(--text-secondary)]">
+                <p>
+                  {backfillProgress.processed} von {backfillProgress.total} Eintraegen verarbeitet
+                </p>
+                <p>
+                  Erfolgreich: {backfillProgress.success} | Fehler: {backfillProgress.failed}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

@@ -91,7 +91,7 @@ h6 {
 }
 
 .app-main {
-  padding-top: 64px;
+  padding-top: 76px;
 }
 
 .app-nav {
@@ -109,7 +109,7 @@ h6 {
   max-width: 72rem;
   margin-left: auto;
   margin-right: auto;
-  height: 64px;
+  height: 72px;
   padding: 0 1rem;
   display: flex;
   align-items: center;
@@ -173,7 +173,7 @@ h6 {
 
 .dots-dropdown {
   position: fixed;
-  top: 64px;
+  top: 72px;
   right: 1rem;
   z-index: 9998;
 }
@@ -415,7 +415,7 @@ h6 {
 /* Dashboard Layout - Responsive */
 @media (max-width: 767px) {
   .app-main {
-    padding-top: 64px;
+    padding-top: 76px;
   }
 
   .dashboard-container {
@@ -457,7 +457,10 @@ h6 {
   position: fixed;
   inset: 0;
   z-index: 1200;
-  background: #0a0a0a;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(52, 211, 153, 0.08), transparent 30%),
+    radial-gradient(circle at 85% 80%, rgba(34, 197, 94, 0.06), transparent 34%),
+    #040704;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -470,23 +473,43 @@ h6 {
 }
 
 .pin-card {
-  width: min(92vw, 360px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(16px);
-  padding: 1.5rem;
+  width: min(92vw, 420px);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(14, 24, 17, 0.9), rgba(8, 14, 11, 0.96));
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.08) inset,
+    0 16px 40px rgba(0, 0, 0, 0.55),
+    0 0 28px rgba(16, 185, 129, 0.12);
+  padding: 1.4rem;
 }
 
 .pin-card.shake {
   animation: pin-shake 0.34s ease;
 }
 
+.pin-eyebrow {
+  margin: 0 0 0.3rem 0;
+  text-align: center;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  color: rgba(52, 211, 153, 0.75);
+}
+
 .pin-title {
   text-align: center;
-  font-size: 1.6rem;
+  font-size: 1.75rem;
   font-weight: 500;
-  margin-bottom: 1rem;
+  margin-bottom: 0.4rem;
+  color: #d1fae5;
+}
+
+.pin-subtitle {
+  margin: 0 0 1rem 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: rgba(209, 250, 229, 0.65);
 }
 
 .pin-dots {
@@ -497,12 +520,13 @@ h6 {
 }
 
 .pin-dot {
-  font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.25);
+  font-size: 1.05rem;
+  color: rgba(110, 231, 183, 0.26);
 }
 
 .pin-dot.filled {
-  color: var(--text-primary);
+  color: #6ee7b7;
+  text-shadow: 0 0 8px rgba(110, 231, 183, 0.6);
 }
 
 .pin-pad {
@@ -512,18 +536,19 @@ h6 {
 }
 
 .pin-btn {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  background: rgba(16, 28, 21, 0.9);
+  color: #d1fae5;
   border-radius: 12px;
-  min-height: 58px;
+  min-height: 56px;
   font-size: 1.2rem;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
 }
 
 .pin-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(18, 44, 31, 0.95);
+  border-color: rgba(110, 231, 183, 0.5);
 }
 
 .pin-btn-delete {
@@ -537,7 +562,7 @@ h6 {
   align-items: center;
   gap: 0.55rem;
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  color: rgba(209, 250, 229, 0.72);
 }
 
 @keyframes pin-shake {
