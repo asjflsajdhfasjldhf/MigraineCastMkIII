@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 interface NavigationProps {
   showLocationPin: boolean;
@@ -12,6 +13,7 @@ interface NavigationProps {
 export const Navigation: React.FC<NavigationProps> = ({ showLocationPin, locationName }) => {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dbOnline, setDbOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : '';
@@ -19,6 +21,37 @@ export const Navigation: React.FC<NavigationProps> = ({ showLocationPin, locatio
       document.body.style.overflow = '';
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkDatabase = async () => {
+      try {
+        const { error } = await supabase
+          .from('migraine_events')
+          .select('id')
+          .limit(1);
+
+        if (!mounted) return;
+        setDbOnline(!error);
+        if (error) {
+          console.error('Database status check failed in navbar:', error);
+        }
+      } catch (error) {
+        if (!mounted) return;
+        console.error('Database status check exception in navbar:', error);
+        setDbOnline(false);
+      }
+    };
+
+    checkDatabase();
+    const timer = window.setInterval(checkDatabase, 30000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const isActive = (href: string) => {
     return pathname === href;
@@ -44,63 +77,56 @@ export const Navigation: React.FC<NavigationProps> = ({ showLocationPin, locatio
             MigraineCast
           </Link>
 
-          <div className="nav-links">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`nav-link ${isActive(item.href) ? 'active' : ''}`}
-              >
-                {item.label}
-              </Link>
-            ))}
-            {showLocationPin && locationName && (
-              <Link href="/settings" className="location-pin">
-                <span>📍</span>
-                <span>{locationName}</span>
-              </Link>
-            )}
-          </div>
+          <div className="nav-right-tools">
+            <span className={`db-indicator ${dbOnline === false ? 'offline' : ''}`}>
+              <span className="db-dot" />
+              <span>{dbOnline === null ? 'DB prüft' : dbOnline ? 'DB online' : 'DB offline'}</span>
+            </span>
 
-          <button
-            className="hamburger-btn"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Menue oeffnen"
-            aria-expanded={menuOpen}
-          >
-            ☰
-          </button>
+            <Link href="/journal" className="nav-plus-btn" aria-label="Neuer Eintrag">
+              +
+            </Link>
+
+            <button
+              type="button"
+              className="dots-menu-btn"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              aria-label="Menü öffnen"
+              aria-expanded={menuOpen}
+            >
+              ⋮
+            </button>
+          </div>
         </div>
       </nav>
 
       {menuOpen && (
-        <div className="nav-overlay-menu" role="dialog" aria-modal="true">
-          <button
-            type="button"
-            className="nav-overlay-close"
-            onClick={() => setMenuOpen(false)}
-            aria-label="Menue schliessen"
-          >
-            ×
-          </button>
-
-          <div className="nav-overlay-links">
+        <div className="dots-dropdown" role="menu" aria-label="Hauptmenü">
+          <div className="dots-dropdown-inner">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`nav-overlay-link ${isActive(item.href) ? 'active' : ''}`}
+                className={`dots-dropdown-link ${isActive(item.href) ? 'active' : ''}`}
                 onClick={handleLinkClick}
               >
                 {item.label}
               </Link>
             ))}
             {showLocationPin && locationName && (
-              <Link href="/settings" className="location-pin nav-overlay-pin" onClick={handleLinkClick}>
+              <Link href="/settings" className="location-pin nav-location-row" onClick={handleLinkClick}>
                 <span>📍</span>
                 <span>{locationName}</span>
               </Link>
             )}
+
+            <button
+              type="button"
+              className="dots-close"
+              onClick={() => setMenuOpen(false)}
+            >
+              Schließen
+            </button>
           </div>
         </div>
       )}
