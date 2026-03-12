@@ -168,21 +168,21 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
 
       {/* Peak Today */}
       {peakToday && (
-        <p className="text-xs text-[var(--text-secondary)] mb-3">
-          Peak {peakToday.percentage}% um {peakToday.time}
+        <p className="text-[12px] mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          Peak heute: {peakToday.percentage}% um {peakToday.time}
         </p>
       )}
 
       {/* Strongest Factor */}
       {strongestFactor && (
-        <p className="text-xs text-[var(--text-secondary)] mb-3">
+        <p className="text-[12px] mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
           Stärkster Faktor: {strongestFactor.name} ({(strongestFactor.value * 100).toFixed(0)}%)
         </p>
       )}
 
       {/* Comparison Yesterday */}
       {yesterdayComparison && (
-        <p className="text-xs text-[var(--text-secondary)] mb-4">
+        <p className="text-[12px] mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
           {yesterdayComparison.text}
         </p>
       )}

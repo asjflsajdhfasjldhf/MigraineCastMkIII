@@ -27,6 +27,7 @@ type AnalysisStats = {
   severityDistribution: Array<{ severity: number; count: number }>;
   correlations: CorrelationRow[];
   neurodivergence: NeuroRow[];
+  hasPersonalFactors: boolean;
 };
 
 type PersonalFactorRow = {
@@ -42,6 +43,20 @@ type PersonalFactorRow = {
   overstimulation: number | null;
 };
 
+type EnvironmentSnapshotRow = {
+  event_id: string;
+  pressure: number | null;
+  pressure_change_6h: number | null;
+  pressure_change_24h: number | null;
+  temperature: number | null;
+  temp_change_6h: number | null;
+  humidity: number | null;
+  wind_speed: number | null;
+  uv_index: number | null;
+  air_quality_pm25: number | null;
+  season: string | null;
+};
+
 export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<AnalysisStats>({
@@ -50,28 +65,36 @@ export default function AnalysisPage() {
     severityDistribution: [],
     correlations: [],
     neurodivergence: [],
+    hasPersonalFactors: false,
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAnalysis = async () => {
       try {
+        console.log('[Analysis] Loading migraine events...');
         const fetchedEvents = await getMigraineEvents();
+        console.log('[Analysis] Fetched events:', fetchedEvents.length, fetchedEvents);
+        
         const eventsWithDate = fetchedEvents.filter((event) => Boolean(event.started_at));
+        console.log('[Analysis] Events with date:', eventsWithDate.length);
 
         if (eventsWithDate.length === 0) {
+          console.log('[Analysis] No events with dates found');
           setStats({
             totalEvents: 0,
             averageSeverity: 0,
             correlations: [],
             severityDistribution: [],
             neurodivergence: [],
+            hasPersonalFactors: false,
           });
           setErrorMessage(null);
           setLoading(false);
           return;
         }
 
+        // Severity distribution
         const severityMap: { [key: number]: number } = {};
         for (let i = 1; i <= 10; i++) {
           severityMap[i] = eventsWithDate.filter((event) => event.severity === i).length;
@@ -87,6 +110,10 @@ export default function AnalysisPage() {
         const averageSeverity =
           eventsWithDate.reduce((sum, event) => sum + event.severity, 0) / eventsWithDate.length;
 
+        console.log('[Analysis] Severity distribution:', severityDistribution);
+        console.log('[Analysis] Average severity:', averageSeverity);
+
+        // Symptom correlations from migraine_events.symptoms
         const symptomCounter = new Map<string, number>();
         eventsWithDate.forEach((event) => {
           event.symptoms.forEach((symptom) => {
@@ -105,7 +132,122 @@ export default function AnalysisPage() {
           }
         );
 
+        console.log('[Analysis] Symptom correlations:', symptomCorrelations);
+
         const eventIds = eventsWithDate.map((event) => event.id);
+
+        // Load environment_snapshots
+        console.log('[Analysis] Loading environment_snapshots for event IDs:', eventIds);
+        const { data: envSnapshots, error: envError } = await supabase
+          .from('environment_snapshots')
+          .select(
+            'event_id, pressure, pressure_change_6h, pressure_change_24h, temperature, temp_change_6h, humidity, wind_speed, uv_index, air_quality_pm25, season'
+          )
+          .in('event_id', eventIds);
+
+        if (envError) {
+          console.error('[Analysis] environment_snapshots query error:', envError);
+          throw new Error(`environment_snapshots query failed: ${envError.message}`);
+        }
+
+        const envRows = (envSnapshots || []) as EnvironmentSnapshotRow[];
+        console.log('[Analysis] Environment snapshots loaded:', envRows.length, envRows.slice(0, 3));
+
+        // Environment factor correlations
+        const envCorrelations: CorrelationRow[] = [];
+
+        // Pressure drop correlation
+        if (envRows.length > 0) {
+          const pressureDrops = envRows.filter(
+            (row) => row.pressure_change_6h !== null && row.pressure_change_6h <= -1
+          ).length;
+          if (pressureDrops > 0) {
+            envCorrelations.push({
+              factor: 'Luftdruckabfall (≥1 hPa/6h)',
+              correlation: pressureDrops / envRows.length,
+              frequency: (pressureDrops / envRows.length) * 100,
+            });
+          }
+
+          // High pressure
+          const highPressure = envRows.filter((row) => row.pressure !== null && row.pressure >= 1013).length;
+          if (highPressure > 0) {
+            envCorrelations.push({
+              factor: 'Hoher Luftdruck (≥1013 hPa)',
+              correlation: highPressure / envRows.length,
+              frequency: (highPressure / envRows.length) * 100,
+            });
+          }
+
+          // Low pressure
+          const lowPressure = envRows.filter((row) => row.pressure !== null && row.pressure < 1000).length;
+          if (lowPressure > 0) {
+            envCorrelations.push({
+              factor: 'Niedriger Luftdruck (<1000 hPa)',
+              correlation: lowPressure / envRows.length,
+              frequency: (lowPressure / envRows.length) * 100,
+            });
+          }
+
+          // Temperature change
+          const tempChange = envRows.filter(
+            (row) => row.temp_change_6h !== null && Math.abs(row.temp_change_6h) >= 3
+          ).length;
+          if (tempChange > 0) {
+            envCorrelations.push({
+              factor: 'Temperaturwechsel (≥3°C/6h)',
+              correlation: tempChange / envRows.length,
+              frequency: (tempChange / envRows.length) * 100,
+            });
+          }
+
+          // High humidity
+          const highHumidity = envRows.filter((row) => row.humidity !== null && row.humidity >= 80).length;
+          if (highHumidity > 0) {
+            envCorrelations.push({
+              factor: 'Hohe Luftfeuchte (≥80%)',
+              correlation: highHumidity / envRows.length,
+              frequency: (highHumidity / envRows.length) * 100,
+            });
+          }
+
+          // High UV
+          const highUV = envRows.filter((row) => row.uv_index !== null && row.uv_index >= 7).length;
+          if (highUV > 0) {
+            envCorrelations.push({
+              factor: 'Hohe UV-Belastung (≥7)',
+              correlation: highUV / envRows.length,
+              frequency: (highUV / envRows.length) * 100,
+            });
+          }
+
+          // High wind
+          const highWind = envRows.filter((row) => row.wind_speed !== null && row.wind_speed >= 40).length;
+          if (highWind > 0) {
+            envCorrelations.push({
+              factor: 'Starker Wind (≥40 km/h)',
+              correlation: highWind / envRows.length,
+              frequency: (highWind / envRows.length) * 100,
+            });
+          }
+
+          // Poor air quality
+          const poorAQ = envRows.filter(
+            (row) => row.air_quality_pm25 !== null && row.air_quality_pm25 >= 35
+          ).length;
+          if (poorAQ > 0) {
+            envCorrelations.push({
+              factor: 'Hohe PM2.5 (≥35 µg/m³)',
+              correlation: poorAQ / envRows.length,
+              frequency: (poorAQ / envRows.length) * 100,
+            });
+          }
+        }
+
+        console.log('[Analysis] Environment correlations:', envCorrelations);
+
+        // Load personal factors
+        console.log('[Analysis] Loading personal_factors...');
         const { data: personalFactors, error: personalError } = await supabase
           .from('personal_factors')
           .select(
@@ -114,18 +256,22 @@ export default function AnalysisPage() {
           .in('event_id', eventIds);
 
         if (personalError) {
+          console.error('[Analysis] personal_factors query error:', personalError);
           throw new Error(`personal_factors query failed: ${personalError.message}`);
         }
 
         const personalRows = (personalFactors || []) as PersonalFactorRow[];
+        console.log('[Analysis] Personal factors loaded:', personalRows.length, personalRows.slice(0, 3));
+
+        const hasPersonalFactors = personalRows.length > 0;
 
         const personalTriggerDefs: Array<{
           label: string;
           pick: (row: PersonalFactorRow) => boolean;
         }> = [
-          { label: 'Hoher Stress (>=4)', pick: (row) => (row.stress_level ?? 0) >= 4 },
+          { label: 'Hoher Stress (≥4)', pick: (row) => (row.stress_level ?? 0) >= 4 },
           { label: 'Wenig Schlaf (<6.5h)', pick: (row) => (row.sleep_hours ?? 99) < 6.5 },
-          { label: 'Niedrige Hydration (<=2)', pick: (row) => (row.hydration ?? 99) <= 2 },
+          { label: 'Niedrige Hydration (≤2)', pick: (row) => (row.hydration ?? 99) <= 2 },
           { label: 'Alkohol am Vortag', pick: (row) => row.alcohol_yesterday === true },
           { label: 'Koffeinentzug', pick: (row) => row.caffeine_withdrawal === true },
         ];
@@ -143,6 +289,9 @@ export default function AnalysisPage() {
                 };
               });
 
+        console.log('[Analysis] Personal correlations:', personalCorrelations);
+
+        // Neurodiversity correlations
         const neuroDefs: Array<{
           factor: string;
           key: keyof Pick<
@@ -175,9 +324,14 @@ export default function AnalysisPage() {
           })
           .filter((row): row is NeuroRow => row !== null);
 
-        const combinedCorrelations = [...symptomCorrelations, ...personalCorrelations]
+        console.log('[Analysis] Neurodiversity correlations:', neurodivergence);
+
+        // Combine all correlations
+        const combinedCorrelations = [...symptomCorrelations, ...envCorrelations, ...personalCorrelations]
           .sort((a, b) => b.correlation - a.correlation)
           .slice(0, 10);
+
+        console.log('[Analysis] Final correlations:', combinedCorrelations);
 
         setStats({
           totalEvents: eventsWithDate.length,
@@ -185,13 +339,18 @@ export default function AnalysisPage() {
           severityDistribution,
           correlations: combinedCorrelations,
           neurodivergence,
+          hasPersonalFactors,
         });
 
         setErrorMessage(null);
         setLoading(false);
       } catch (error) {
-        console.error('Error loading analysis:', error);
-        setErrorMessage('Daten konnten nicht geladen werden. Bitte Supabase-Konfiguration prüfen.');
+        console.error('[Analysis] Error loading analysis:', error);
+        setErrorMessage(
+          error instanceof Error
+            ? `Fehler: ${error.message}`
+            : 'Daten konnten nicht geladen werden. Bitte Supabase-Konfiguration prüfen.'
+        );
         setLoading(false);
       }
     };
@@ -247,9 +406,20 @@ export default function AnalysisPage() {
           <LagAnalysis data={[]} />
         </div>
 
-        <div className="mb-6">
-          <NeurodivergenceChart data={stats.neurodivergence} />
-        </div>
+        {stats.hasPersonalFactors ? (
+          <div className="mb-6">
+            <NeurodivergenceChart data={stats.neurodivergence} />
+          </div>
+        ) : (
+          <div className="glass-card p-6 mb-6">
+            <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+              Neurodivergenz-Korrelation
+            </h2>
+            <p className="text-[var(--text-secondary)] text-sm">
+              Wird verfügbar sobald Einträge mit persönlichen Faktoren erfasst sind.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

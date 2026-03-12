@@ -28,6 +28,8 @@ export default function DashboardPage() {
   const [hourlyData, setHourlyData] = useState<HourlyForecast[]>([]);
   const [dailyData, setDailyData] = useState<DailyForecastType[]>([]);
   const [showAlert, setShowAlert] = useState(false);
+  const [kriiFactors, setKriiFactors] = useState<any[]>([]);
+  const [yesterdayPeak, setYesterdayPeak] = useState<number | null>(null);
   const [peakData, setPeakData] = useState<{
     percentage: number;
     time: string;
@@ -207,12 +209,60 @@ export default function DashboardPage() {
           .map((hour, index) => ({ hour, index }))
           .filter(({ hour }) => isSameLocalDay(new Date(hour.time), today));
 
+        // Calculate yesterday's peak
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayIndices = hourly
+          .map((hour, index) => ({ hour, index }))
+          .filter(({ hour }) => isSameLocalDay(new Date(hour.time), yesterday));
+        
+        let yesterdayPeakValue = null;
+        if (yesterdayIndices.length > 0) {
+          const yesterdayPeakHour = yesterdayIndices.reduce((max, item) =>
+            item.hour.krii_value > max.hour.krii_value ? item : max
+          );
+          yesterdayPeakValue = yesterdayPeakHour.hour.krii_value;
+          setYesterdayPeak(yesterdayPeakValue);
+        }
+
         if (todayIndices.length > 0) {
           const todayPeak = todayIndices.reduce((max, item) =>
             item.hour.krii_value > max.hour.krii_value ? item : max
           );
           setKriiValue(todayPeak.hour.krii_value);
           setRiskLevel(todayPeak.hour.krii_level);
+          
+          // Calculate KRII factors for today's peak
+          const peakEnv: EnvironmentSnapshot = {
+            id: '',
+            event_id: '',
+            recorded_at: todayPeak.hour.time,
+            lat,
+            lon,
+            pressure: todayPeak.hour.pressure,
+            pressure_trend: null,
+            pressure_change_6h: todayPeak.hour.pressure_change_6h ?? null,
+            pressure_change_24h: null,
+            pressure_6h_ago: null,
+            pressure_12h_ago: null,
+            pressure_24h_ago: null,
+            pressure_48h_ago: null,
+            temperature: todayPeak.hour.temperature,
+            temperature_absolute: todayPeak.hour.temperature,
+            temp_change_6h: null,
+            humidity: todayPeak.hour.humidity,
+            wind_speed: todayPeak.hour.wind_speed,
+            uv_index: todayPeak.hour.uv_index ?? null,
+            air_quality_pm25: todayPeak.hour.pm25,
+            air_quality_no2: todayPeak.hour.no2 ?? null,
+            air_quality_ozone: todayPeak.hour.ozone ?? null,
+            hour_of_day: new Date(todayPeak.hour.time).getHours(),
+            season: getSeason(new Date(todayPeak.hour.time)),
+            created_at: new Date().toISOString(),
+          };
+          
+          const kriiResult = calculateKRIIValue(peakEnv, null, chronotype);
+          setKriiFactors(kriiResult.factors);
         } else if (hourly.length > 0) {
           setKriiValue(hourly[0].krii_value);
           setRiskLevel(hourly[0].krii_level);
@@ -357,7 +407,13 @@ export default function DashboardPage() {
 
         {/* KRII Indicator and Weather Summary */}
         <div className="dashboard-grid-2 mb-6">
-          <MigraineIndicator kriiValue={kriiValue} riskLevel={riskLevel} />
+          <MigraineIndicator 
+            kriiValue={kriiValue} 
+            riskLevel={riskLevel}
+            hourlyData={hourlyData}
+            kriiFactors={kriiFactors}
+            yesterdayPeak={yesterdayPeak ?? undefined}
+          />
           {weatherData && (
             <WeatherSummary
               temperature={weatherData.current.temperature}
