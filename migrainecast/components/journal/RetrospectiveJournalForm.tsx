@@ -219,15 +219,15 @@ export const RetrospectiveJournalForm: React.FC<RetrospectiveJournalFormProps> =
       <div className="space-y-6">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
           <label className="block text-sm font-medium text-[var(--text-secondary)]">Standort fuer Historical-Daten</label>
-          <div className="flex flex-col md:flex-row gap-2">
+          <div className="flex gap-2 flex-nowrap">
             <input
               type="text"
               value={locationQuery}
               onChange={(e) => setLocationQuery(e.target.value)}
               placeholder="Stadt suchen"
-              className="ui-input"
+              className="ui-input flex-1"
             />
-            <button type="button" onClick={handleLocationSearch} className="ui-button md:w-auto" disabled={isLocationSearching}>
+            <button type="button" onClick={handleLocationSearch} className="ui-button flex-shrink-0" disabled={isLocationSearching}>
               {isLocationSearching ? 'Suche...' : 'Suchen'}
             </button>
           </div>

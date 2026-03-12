@@ -49,6 +49,7 @@ const DEFAULT_SETTINGS: UserSettings = {
 };
 
 const OPEN_METEO_ARCHIVE_URL = 'https://archive.open-meteo.com/v1/archive';
+const OPEN_METEO_HISTORICAL_FORECAST_URL = 'https://historical-forecast-api.open-meteo.com/v1/forecast';
 const OPEN_METEO_TIMEOUT_MS = 12000;
 
 const formatDate = (dateIso: string): string => new Date(dateIso).toISOString().split('T')[0];
@@ -322,26 +323,57 @@ export default function SettingsPage() {
             longitude: usedLon.toString(),
             start_date: dateStr,
             end_date: dateStr,
-            hourly: 'temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,uv_index',
+            hourly: 'temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,uv_index,precipitation,weathercode',
             timezone: 'Europe/Berlin',
           });
 
-          const url = `${OPEN_METEO_ARCHIVE_URL}?${params.toString()}`;
-          const response = await fetchWithTimeout(url, OPEN_METEO_TIMEOUT_MS);
-
-          if (!response.ok) {
-            const body = await response.text();
-            throw new Error(`Open-Meteo status=${response.status}; body=${body.slice(0, 280)}`);
+          let response: Response | null = null;
+          let archiveData: ArchiveHourlyResponse | null = null;
+          let usedUrl = '';
+          
+          // Try archive.open-meteo.com first
+          const archiveUrl = `${OPEN_METEO_ARCHIVE_URL}?${params.toString()}`;
+          console.log('[Backfill] Versuche Archive URL:', archiveUrl);
+          
+          try {
+            response = await fetchWithTimeout(archiveUrl, OPEN_METEO_TIMEOUT_MS);
+            console.log('[Backfill] Archive response.status:', response.status);
+            
+            if (response.ok) {
+              const raw = await response.text();
+              archiveData = JSON.parse(raw) as ArchiveHourlyResponse;
+              usedUrl = 'archive.open-meteo.com';
+            }
+          } catch (archiveError) {
+            console.log('[Backfill] Archive URL fehlgeschlagen:', archiveError instanceof Error ? archiveError.message : String(archiveError));
           }
 
-          const raw = await response.text();
-          let archiveData: ArchiveHourlyResponse;
-          try {
-            archiveData = JSON.parse(raw) as ArchiveHourlyResponse;
-          } catch (error) {
-            throw new Error(
-              `Open-Meteo JSON Parse Fehler: ${error instanceof Error ? error.message : 'Unbekannt'}; body=${raw.slice(0, 280)}`
-            );
+          // Falls archive fehlschlägt, versuche historical-forecast-api
+          if (!archiveData) {
+            const forecastUrl = `${OPEN_METEO_HISTORICAL_FORECAST_URL}?${params.toString()}`;
+            console.log('[Backfill] Versuche Historical-Forecast URL:', forecastUrl);
+            
+            response = await fetchWithTimeout(forecastUrl, OPEN_METEO_TIMEOUT_MS);
+            console.log('[Backfill] Historical-Forecast response.status:', response.status);
+            
+            if (!response.ok) {
+              const body = await response.text();
+              throw new Error(`Historical-Forecast status=${response.status}; body=${body.slice(0, 280)}`);
+            }
+
+            const raw = await response.text();
+            try {
+              archiveData = JSON.parse(raw) as ArchiveHourlyResponse;
+              usedUrl = 'historical-forecast-api.open-meteo.com';
+            } catch (error) {
+              throw new Error(
+                `Historical-Forecast JSON Parse Fehler: ${error instanceof Error ? error.message : 'Unbekannt'}; body=${raw.slice(0, 280)}`
+              );
+            }
+          }
+
+          if (!archiveData) {
+            throw new Error('Keine Daten von Open-Meteo verfügbar');
           }
 
           if (!archiveData.hourly || archiveData.hourly.time.length === 0) {
@@ -489,7 +521,7 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
                 Standort suchen
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-nowrap">
                 <input
                   type="text"
                   placeholder="Stadt oder Adresse eingeben..."
@@ -506,7 +538,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleLocationSearch}
                   disabled={locationSearching || saving}
-                  className="ui-button px-4 py-2 disabled:opacity-50"
+                  className="ui-button flex-shrink-0 disabled:opacity-50"
                 >
                   {locationSearching ? 'Sucht...' : 'Suchen'}
                 </button>

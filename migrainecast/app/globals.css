@@ -537,6 +537,7 @@ h6 {
 }
 
 .pin-pad {
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.65rem;
@@ -559,7 +560,6 @@ h6 {
 }
 
 .pin-btn-delete {
-  grid-column: span 3;
   font-size: 1rem;
 }
 

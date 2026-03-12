@@ -158,7 +158,8 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
             </div>
 
             <div className="pin-pad" role="group" aria-label="PIN pad">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((digit) => (
+              {/* Row 1: 1, 2, 3 */}
+              {['1', '2', '3'].map((digit) => (
                 <button
                   key={digit}
                   type="button"
@@ -168,8 +169,35 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
                   {digit}
                 </button>
               ))}
+              {/* Row 2: 4, 5, 6 */}
+              {['4', '5', '6'].map((digit) => (
+                <button
+                  key={digit}
+                  type="button"
+                  className="pin-btn"
+                  onClick={() => pushDigit(digit)}
+                >
+                  {digit}
+                </button>
+              ))}
+              {/* Row 3: 7, 8, 9 */}
+              {['7', '8', '9'].map((digit) => (
+                <button
+                  key={digit}
+                  type="button"
+                  className="pin-btn"
+                  onClick={() => pushDigit(digit)}
+                >
+                  {digit}
+                </button>
+              ))}
+              {/* Row 4: empty, 0, delete */}
+              <div />
+              <button type="button" className="pin-btn" onClick={() => pushDigit('0')}>
+                0
+              </button>
               <button type="button" className="pin-btn pin-btn-delete" onClick={deleteDigit}>
-                Loeschen
+                ←
               </button>
             </div>
 
