@@ -21,7 +21,13 @@ export const RiskAlert: React.FC<RiskAlertProps> = ({
   return (
     <div className="w-full glass-card rounded-2xl p-4 border mb-6" style={{ borderColor: 'var(--accent-high)' }}>
       <div className="flex items-start gap-3">
-        <span className="text-2xl">⚠️</span>
+        <span className="inline-flex mt-0.5" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 4L21 20H3L12 4Z" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M12 9V13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            <circle cx="12" cy="16.5" r="1" fill="currentColor" />
+          </svg>
+        </span>
         <div className="flex-1">
           <h3 className="font-semibold text-[var(--text-primary)] mb-1">Hohes Risiko erkannt</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-2">

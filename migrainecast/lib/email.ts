@@ -150,7 +150,7 @@ export async function sendTestEmail(email: string): Promise<void> {
       <body>
         <div class="container">
           <div class="header">
-            <h1 style="margin: 0; font-size: 24px;">✅ Test-E-Mail erfolgreich</h1>
+            <h1 style="margin: 0; font-size: 24px;">Test-E-Mail erfolgreich</h1>
           </div>
 
           <div class="content">
@@ -159,10 +159,10 @@ export async function sendTestEmail(email: string): Promise<void> {
             <p>Sie werden ab sofort tägliche Migräne-Risiko-Warnungen erhalten, falls die KRII-Risikovorhersage über 50% liegt.</p>
 
             <div style="text-align: center;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/journal" class="cta-button">📝 Zum Tagebuch</a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/journal" class="cta-button">Zum Tagebuch</a>
             </div>
 
-            <p style="margin-top: 20px;">Viel Erfolg mit MigraineCast! 💜</p>
+            <p style="margin-top: 20px;">Viel Erfolg mit MigraineCast!</p>
           </div>
 
           <div class="footer">
@@ -175,7 +175,7 @@ export async function sendTestEmail(email: string): Promise<void> {
 
   await sendEmail({
     to: email,
-    subject: '✅ MigraineCast: Test-E-Mail erfolgreich',
+    subject: 'MigraineCast: Test-E-Mail erfolgreich',
     html,
   });
 }

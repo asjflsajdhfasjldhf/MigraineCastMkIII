@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { getUserSettings, updateUserSetting } from '@/lib/supabase';
 import { UserSettings } from '@/types';
 import { KRII_CONFIG } from '@/lib/krii-config';
-import { Navigation } from '@/components/Navigation';
 
 interface GeocodeApiResult {
   id?: number;
@@ -45,9 +44,9 @@ export default function SettingsPage() {
   const [locationQuery, setLocationQuery] = useState('');
   const [locationSearching, setLocationSearching] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeApiResult[]>([]);
-  const [userLocation, setUserLocation] = useState<string | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<BackfillProgress | null>(null);
+  const [backfillErrors, setBackfillErrors] = useState<string[]>([]);
 
   const handleNumericEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter') return;
@@ -67,7 +66,6 @@ export default function SettingsPage() {
       try {
         const loadedSettings = await getUserSettings();
         setSettings({ ...DEFAULT_SETTINGS, ...loadedSettings });
-        setUserLocation(loadedSettings.location_name || null);
       } catch (error) {
         console.error('Error loading settings:', error);
         setSettings(DEFAULT_SETTINGS);
@@ -158,7 +156,6 @@ export default function SettingsPage() {
         location_name: locationName,
       }));
 
-  setUserLocation(locationName);
       setLocationResults([]);
       setLocationQuery(locationName);
       setMessage({ type: 'success', text: `Standort gespeichert: ${locationName}` });
@@ -208,6 +205,7 @@ export default function SettingsPage() {
       setBackfillRunning(true);
       setMessage(null);
       setBackfillProgress({ total: 0, processed: 0, success: 0, failed: 0 });
+      setBackfillErrors([]);
 
       const response = await fetch('/api/backfill-weather', {
         method: 'POST',
@@ -240,10 +238,18 @@ export default function SettingsPage() {
             success?: number;
             failed?: number;
             error?: string;
+            details?: string;
+            eventId?: string;
           };
 
           if (payload.type === 'fatal-error') {
             throw new Error(payload.error || 'Unbekannter Fehler beim Backfill.');
+          }
+
+          if (payload.type === 'event-error') {
+            const errorText = payload.details || payload.error || 'Unbekannter Fehler';
+            setBackfillErrors((prev) => [...prev, `Event ${payload.eventId || 'unbekannt'}: ${errorText}`]);
+            continue;
           }
 
           if (payload.type === 'start' || payload.type === 'progress' || payload.type === 'done') {
@@ -262,7 +268,7 @@ export default function SettingsPage() {
                 type: failed > 0 ? 'error' : 'success',
                 text:
                   failed > 0
-                    ? `Backfill abgeschlossen: ${success} von ${total} gespeichert, ${failed} Fehler.`
+                    ? `Backfill abgeschlossen: ${success} von ${total} gespeichert, ${failed} Fehler. Details unten.`
                     : `Backfill abgeschlossen: ${success} von ${total} gespeichert.`,
               });
             }
@@ -312,9 +318,6 @@ export default function SettingsPage() {
 
   return (
     <div className="app-shell">
-      {/* Navigation */}
-      <Navigation showLocationPin={false} locationName={null} />
-
       <div className="app-main max-w-2xl mx-auto dashboard-container py-8">
         {message && (
           <div
@@ -479,6 +482,17 @@ export default function SettingsPage() {
                 <p>
                   Erfolgreich: {backfillProgress.success} | Fehler: {backfillProgress.failed}
                 </p>
+              </div>
+            )}
+
+            {backfillErrors.length > 0 && (
+              <div className="text-sm rounded-xl border border-[var(--accent-high)] bg-white/[0.03] p-3 space-y-1">
+                <p className="text-[var(--text-primary)] font-medium">Fehlerdetails</p>
+                {backfillErrors.slice(-8).map((errorText, index) => (
+                  <p key={`${errorText}-${index}`} className="text-[var(--text-secondary)] break-all">
+                    {errorText}
+                  </p>
+                ))}
               </div>
             )}
           </div>

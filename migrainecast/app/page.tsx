@@ -8,7 +8,6 @@ import { WeatherSummary } from '@/components/dashboard/WeatherSummary';
 import { RiskAlert } from '@/components/dashboard/RiskAlert';
 import { HourlyTable } from '@/components/dashboard/HourlyTable';
 import { DailyForecast } from '@/components/dashboard/DailyForecast';
-import { Navigation } from '@/components/Navigation';
 import {
   EnvironmentSnapshot,
   HourlyForecast,
@@ -38,7 +37,6 @@ export default function DashboardPage() {
     time: string;
     triggers: string[];
   } | null>(null);
-  const [userLocation, setUserLocation] = useState<string | null>(null);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -113,8 +111,6 @@ export default function DashboardPage() {
             ? `GPS ${lat.toFixed(3)}, ${lon.toFixed(3)}`
             : 'Berlin';
 
-          setUserLocation(locationName);
-
           Promise.all([
             updateUserSetting('location_lat', lat.toString()),
             updateUserSetting('location_lon', lon.toString()),
@@ -122,8 +118,6 @@ export default function DashboardPage() {
           ]).catch((error) => {
             console.error('Error persisting geolocation to user_settings:', error);
           });
-        } else {
-          setUserLocation(settings.location_name || 'Berlin');
         }
 
         const weatherBundle = await fetchWeatherBundle(lat, lon).catch(async () => {
@@ -357,9 +351,6 @@ export default function DashboardPage() {
 
   return (
     <div className="app-shell">
-      {/* Navigation */}
-        <Navigation showLocationPin={true} locationName={userLocation} />
-
       {/* Main Content */}
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
         {/* Open Migraine Events Alert */}

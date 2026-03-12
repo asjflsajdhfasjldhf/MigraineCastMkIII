@@ -10,7 +10,6 @@ import {
 } from '@/components/journal/RetrospectiveJournalForm';
 import { JournalList } from '@/components/journal/JournalList';
 import { EventDetail } from '@/components/journal/EventDetail';
-import { Navigation } from '@/components/Navigation';
 import {
   getMigraineEvents,
   getMigraineEvent,
@@ -416,9 +415,6 @@ export default function JournalPage() {
 
   return (
     <div className="app-shell">
-
-      {/* Navigation */}
-      <Navigation showLocationPin={true} locationName={userLocation} />
       {/* Main Content */}
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
         {errorMessage && (

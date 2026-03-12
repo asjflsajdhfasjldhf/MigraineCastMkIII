@@ -30,10 +30,14 @@ type SnapshotInsert = {
 interface ArchiveHourlyResponse {
   hourly?: {
     time: string[];
-    pressure_msl: number[];
+    pressure_msl?: number[];
+    surface_pressure?: number[];
     temperature_2m: number[];
-    relative_humidity_2m: number[];
-    wind_speed_10m: number[];
+    relative_humidity_2m?: number[];
+    relativehumidity_2m?: number[];
+    wind_speed_10m?: number[];
+    windspeed_10m?: number[];
+    uv_index?: number[];
   };
 }
 
@@ -87,25 +91,60 @@ async function fetchSnapshotForEvent(
 ): Promise<SnapshotInsert> {
   const startedAt = new Date(startedAtIso);
   const startDate = new Date(startedAt.getTime() - 48 * 60 * 60 * 1000);
+  const endDate = /^\d{4}-\d{2}-\d{2}/.test(startedAtIso)
+    ? startedAtIso.slice(0, 10)
+    : formatDate(startedAt);
 
-  const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
-    start_date: formatDate(startDate),
-    end_date: formatDate(startedAt),
-    hourly: 'pressure_msl,temperature_2m,relative_humidity_2m,wind_speed_10m',
-    timezone: 'GMT',
-  });
+  const hourlyCandidates = [
+    'pressure_msl,temperature_2m,relative_humidity_2m,wind_speed_10m,uv_index',
+    'surface_pressure,temperature_2m,relativehumidity_2m,windspeed_10m,uv_index',
+  ];
 
-  const response = await fetch(`${ARCHIVE_ENDPOINT}?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error(`Historical weather request failed with status ${response.status}`);
+  let data: ArchiveHourlyResponse | null = null;
+  let lastErrorDetail = 'Unknown historical weather error';
+
+  for (const hourlyParam of hourlyCandidates) {
+    const params = new URLSearchParams({
+      latitude: lat.toString(),
+      longitude: lon.toString(),
+      start_date: formatDate(startDate),
+      end_date: endDate,
+      hourly: hourlyParam,
+      timezone: 'GMT',
+    });
+
+    const requestUrl = `${ARCHIVE_ENDPOINT}?${params.toString()}`;
+
+    try {
+      const response = await fetch(requestUrl);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        lastErrorDetail = `status=${response.status}; hourly=${hourlyParam}; body=${errorBody.slice(0, 240)}`;
+        continue;
+      }
+
+      const payload: ArchiveHourlyResponse = await response.json();
+      if (!payload.hourly || payload.hourly.time.length === 0) {
+        lastErrorDetail = `No hourly data returned; hourly=${hourlyParam}; event=${eventId}`;
+        continue;
+      }
+
+      data = payload;
+      break;
+    } catch (error) {
+      lastErrorDetail =
+        `network/json error; hourly=${hourlyParam}; ` +
+        (error instanceof Error ? error.message : 'Unknown error');
+    }
   }
 
-  const data: ArchiveHourlyResponse = await response.json();
-  if (!data.hourly || data.hourly.time.length === 0) {
-    throw new Error('Historical weather response has no hourly data');
+  if (!data || !data.hourly) {
+    throw new Error(`Historical weather fetch failed for event ${eventId}: ${lastErrorDetail}`);
   }
+
+  const pressureSeries = data.hourly.pressure_msl || data.hourly.surface_pressure || [];
+  const humiditySeries = data.hourly.relative_humidity_2m || data.hourly.relativehumidity_2m || [];
+  const windSeries = data.hourly.wind_speed_10m || data.hourly.windspeed_10m || [];
 
   const targetMs = startedAt.getTime();
   const idxNow = findClosestIndex(data.hourly.time, targetMs);
@@ -114,11 +153,11 @@ async function fetchSnapshotForEvent(
   const idx24h = findClosestIndex(data.hourly.time, targetMs - 24 * 60 * 60 * 1000);
   const idx48h = findClosestIndex(data.hourly.time, targetMs - 48 * 60 * 60 * 1000);
 
-  const pressureNow = toNullableNumber(data.hourly.pressure_msl[idxNow]);
-  const pressure6h = toNullableNumber(data.hourly.pressure_msl[idx6h]);
-  const pressure12h = toNullableNumber(data.hourly.pressure_msl[idx12h]);
-  const pressure24h = toNullableNumber(data.hourly.pressure_msl[idx24h]);
-  const pressure48h = toNullableNumber(data.hourly.pressure_msl[idx48h]);
+  const pressureNow = toNullableNumber(pressureSeries[idxNow]);
+  const pressure6h = toNullableNumber(pressureSeries[idx6h]);
+  const pressure12h = toNullableNumber(pressureSeries[idx12h]);
+  const pressure24h = toNullableNumber(pressureSeries[idx24h]);
+  const pressure48h = toNullableNumber(pressureSeries[idx48h]);
 
   const tempNow = toNullableNumber(data.hourly.temperature_2m[idxNow]);
   const temp6h = toNullableNumber(data.hourly.temperature_2m[idx6h]);
@@ -145,9 +184,9 @@ async function fetchSnapshotForEvent(
     temperature: tempNow,
     temperature_absolute: tempNow,
     temp_change_6h: tempChange6h,
-    humidity: toNullableNumber(data.hourly.relative_humidity_2m[idxNow]),
-    wind_speed: toNullableNumber(data.hourly.wind_speed_10m[idxNow]),
-    uv_index: null,
+    humidity: toNullableNumber(humiditySeries[idxNow]),
+    wind_speed: toNullableNumber(windSeries[idxNow]),
+    uv_index: toNullableNumber(data.hourly.uv_index?.[idxNow]),
     air_quality_pm25: null,
     air_quality_no2: null,
     air_quality_ozone: null,
@@ -231,10 +270,18 @@ export async function POST() {
               success += 1;
             } catch (error) {
               failed += 1;
+              const errorText = error instanceof Error ? error.message : 'Unknown error';
               writeLine({
                 type: 'event-error',
                 eventId: event.id,
-                error: error instanceof Error ? error.message : 'Unknown error',
+                error: errorText,
+                details: [
+                  `event_id=${event.id}`,
+                  `started_at=${event.started_at}`,
+                  `lat=${lat}`,
+                  `lon=${lon}`,
+                  `reason=${errorText}`,
+                ].join(' | '),
               });
             } finally {
               processed += 1;

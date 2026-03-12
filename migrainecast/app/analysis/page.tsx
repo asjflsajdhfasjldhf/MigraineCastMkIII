@@ -2,72 +2,189 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { CorrelationTable } from '@/components/analysis/CorrelationTable';
 import { SeverityChart } from '@/components/analysis/SeverityChart';
 import { LagAnalysis } from '@/components/analysis/LagAnalysis';
 import { NeurodivergenceChart } from '@/components/analysis/NeurodivergenceChart';
-import { getMigraineEvents, getUserSettings } from '@/lib/supabase';
+import { getMigraineEvents, supabase } from '@/lib/supabase';
 import { MigraineEvent } from '@/types';
-import { Navigation } from '@/components/Navigation';
+
+type CorrelationRow = {
+  factor: string;
+  correlation: number;
+  frequency: number;
+};
+
+type NeuroRow = {
+  factor: string;
+  correlation: number;
+  averageScore: number;
+};
+
+type AnalysisStats = {
+  totalEvents: number;
+  averageSeverity: number;
+  severityDistribution: Array<{ severity: number; count: number }>;
+  correlations: CorrelationRow[];
+  neurodivergence: NeuroRow[];
+};
+
+type PersonalFactorRow = {
+  event_id: string;
+  sleep_hours: number | null;
+  stress_level: number | null;
+  alcohol_yesterday: boolean | null;
+  caffeine_withdrawal: boolean | null;
+  hydration: number | null;
+  sensory_overload: number | null;
+  masking_intensity: number | null;
+  social_exhaustion: number | null;
+  overstimulation: number | null;
+};
 
 export default function AnalysisPage() {
-  const [events, setEvents] = useState<MigraineEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
-  const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [stats, setStats] = useState<AnalysisStats>({
+    totalEvents: 0,
+    averageSeverity: 0,
+    severityDistribution: [],
+    correlations: [],
+    neurodivergence: [],
+  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAnalysis = async () => {
       try {
         const fetchedEvents = await getMigraineEvents();
-        setEvents(fetchedEvents);
-        const settings = await getUserSettings().catch((error) => {
-          console.error('Error loading user settings in analysis page:', error);
-          return { location_name: null };
-        });
-        setUserLocation(settings.location_name || null);
+        const eventsWithDate = fetchedEvents.filter((event) => Boolean(event.started_at));
 
-        // Calculate statistics
-        const completeEvents = fetchedEvents.filter((e) => e.stage === 'complete');
-
-        if (completeEvents.length === 0) {
+        if (eventsWithDate.length === 0) {
           setStats({
             totalEvents: 0,
             averageSeverity: 0,
             correlations: [],
             severityDistribution: [],
+            neurodivergence: [],
           });
+          setErrorMessage(null);
           setLoading(false);
           return;
         }
 
-        // Severity distribution
         const severityMap: { [key: number]: number } = {};
         for (let i = 1; i <= 10; i++) {
-          severityMap[i] = completeEvents.filter(
-            (e) => e.severity === i
-          ).length;
+          severityMap[i] = eventsWithDate.filter((event) => event.severity === i).length;
         }
 
         const severityDistribution = Object.entries(severityMap)
           .filter(([_, count]) => count > 0)
           .map(([severity, count]) => ({
-            severity: parseInt(severity),
+            severity: parseInt(severity, 10),
             count,
           }));
 
-        // Average stats
         const averageSeverity =
-          completeEvents.reduce((sum, e) => sum + e.severity, 0) /
-          completeEvents.length;
+          eventsWithDate.reduce((sum, event) => sum + event.severity, 0) / eventsWithDate.length;
+
+        const symptomCounter = new Map<string, number>();
+        eventsWithDate.forEach((event) => {
+          event.symptoms.forEach((symptom) => {
+            symptomCounter.set(symptom, (symptomCounter.get(symptom) || 0) + 1);
+          });
+        });
+
+        const symptomCorrelations: CorrelationRow[] = Array.from(symptomCounter.entries()).map(
+          ([factor, count]) => {
+            const ratio = count / eventsWithDate.length;
+            return {
+              factor: `Symptom: ${factor}`,
+              correlation: Math.min(1, ratio),
+              frequency: ratio * 100,
+            };
+          }
+        );
+
+        const eventIds = eventsWithDate.map((event) => event.id);
+        const { data: personalFactors, error: personalError } = await supabase
+          .from('personal_factors')
+          .select(
+            'event_id, sleep_hours, stress_level, alcohol_yesterday, caffeine_withdrawal, hydration, sensory_overload, masking_intensity, social_exhaustion, overstimulation'
+          )
+          .in('event_id', eventIds);
+
+        if (personalError) {
+          throw new Error(`personal_factors query failed: ${personalError.message}`);
+        }
+
+        const personalRows = (personalFactors || []) as PersonalFactorRow[];
+
+        const personalTriggerDefs: Array<{
+          label: string;
+          pick: (row: PersonalFactorRow) => boolean;
+        }> = [
+          { label: 'Hoher Stress (>=4)', pick: (row) => (row.stress_level ?? 0) >= 4 },
+          { label: 'Wenig Schlaf (<6.5h)', pick: (row) => (row.sleep_hours ?? 99) < 6.5 },
+          { label: 'Niedrige Hydration (<=2)', pick: (row) => (row.hydration ?? 99) <= 2 },
+          { label: 'Alkohol am Vortag', pick: (row) => row.alcohol_yesterday === true },
+          { label: 'Koffeinentzug', pick: (row) => row.caffeine_withdrawal === true },
+        ];
+
+        const personalCorrelations: CorrelationRow[] =
+          personalRows.length === 0
+            ? []
+            : personalTriggerDefs.map((def) => {
+                const matching = personalRows.filter(def.pick).length;
+                const ratio = matching / personalRows.length;
+                return {
+                  factor: def.label,
+                  correlation: Math.min(1, ratio),
+                  frequency: ratio * 100,
+                };
+              });
+
+        const neuroDefs: Array<{
+          factor: string;
+          key: keyof Pick<
+            PersonalFactorRow,
+            'sensory_overload' | 'masking_intensity' | 'social_exhaustion' | 'overstimulation'
+          >;
+        }> = [
+          { factor: 'Sensorische Überlastung', key: 'sensory_overload' },
+          { factor: 'Masking-Intensität', key: 'masking_intensity' },
+          { factor: 'Soziale Erschöpfung', key: 'social_exhaustion' },
+          { factor: 'Überstimulation', key: 'overstimulation' },
+        ];
+
+        const neurodivergence: NeuroRow[] = neuroDefs
+          .map((def) => {
+            const values = personalRows
+              .map((row) => row[def.key])
+              .filter((value): value is number => value !== null);
+
+            if (values.length === 0) {
+              return null;
+            }
+
+            const averageScore = values.reduce((sum, value) => sum + value, 0) / values.length;
+            return {
+              factor: def.factor,
+              averageScore,
+              correlation: Math.min(1, averageScore / 5),
+            };
+          })
+          .filter((row): row is NeuroRow => row !== null);
+
+        const combinedCorrelations = [...symptomCorrelations, ...personalCorrelations]
+          .sort((a, b) => b.correlation - a.correlation)
+          .slice(0, 10);
 
         setStats({
-          totalEvents: completeEvents.length,
+          totalEvents: eventsWithDate.length,
           averageSeverity,
           severityDistribution,
-          correlations: [], // Will be updated with real data
+          correlations: combinedCorrelations,
+          neurodivergence,
         });
 
         setErrorMessage(null);
@@ -95,10 +212,6 @@ export default function AnalysisPage() {
 
   return (
     <div className="app-shell">
-
-      {/* Navigation */}
-      <Navigation showLocationPin={true} locationName={userLocation} />
-      {/* Main Content */}
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
         {errorMessage && (
           <div className="glass-card p-4 mb-6 border border-[var(--accent-high)]">
@@ -106,55 +219,45 @@ export default function AnalysisPage() {
           </div>
         )}
 
-        {/* Statistics Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="glass-card p-6">
             <p className="text-[var(--text-secondary)] text-sm mb-2">Gesamtereignisse</p>
-            <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">
-              {stats?.totalEvents || 0}
-            </p>
+            <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">{stats.totalEvents}</p>
           </div>
 
           <div className="glass-card p-6">
             <p className="text-[var(--text-secondary)] text-sm mb-2">Ø Schweregrad</p>
             <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">
-              {stats?.averageSeverity?.toFixed(1) || '—'}/10
+              {stats.averageSeverity ? `${stats.averageSeverity.toFixed(1)}/10` : '—'}
             </p>
           </div>
         </div>
 
-        {/* Severity Distribution */}
-        {stats?.severityDistribution?.length > 0 && (
+        {stats.severityDistribution.length > 0 && (
           <div className="mb-6">
             <SeverityChart data={stats.severityDistribution} />
           </div>
         )}
 
-        {/* Data Message */}
-        {stats?.totalEvents < 10 && (
+        {stats.totalEvents < 10 && (
           <div className="p-4 mb-6 rounded-xl border border-white/10 bg-transparent">
             <p className="text-[13px] text-white/50">
-              <span className="font-medium">Hinweis:</span> Sie haben{' '}
-              {stats?.totalEvents || 0} Einträge. Ab etwa 50 Einträgen können
-              detailliertere Analysen und ein personalisiertes ML-Modell
-              trainiert werden.
+              <span className="font-medium">Hinweis:</span> Sie haben {stats.totalEvents} Einträge. Ab etwa 50
+              Einträgen können detailliertere Analysen und ein personalisiertes ML-Modell trainiert werden.
             </p>
           </div>
         )}
 
-        {/* Correlation Table */}
         <div className="mb-6">
-          <CorrelationTable data={stats?.correlations || []} />
+          <CorrelationTable data={stats.correlations} />
         </div>
 
-        {/* Lag Analysis */}
         <div className="mb-6">
           <LagAnalysis data={[]} />
         </div>
 
-        {/* Neurodiversity Chart */}
         <div className="mb-6">
-          <NeurodivergenceChart data={[]} />
+          <NeurodivergenceChart data={stats.neurodivergence} />
         </div>
       </div>
     </div>

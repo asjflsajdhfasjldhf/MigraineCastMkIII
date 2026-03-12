@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Navigation } from '@/components/Navigation';
-import { getMigraineEvents, getUserSettings, supabase } from '@/lib/supabase';
+import { getMigraineEvents, supabase } from '@/lib/supabase';
 import { MigraineEvent } from '@/types';
 
 interface EnvRow {
@@ -27,6 +26,14 @@ interface PersonalRow {
   overstimulation: number | null;
 }
 
+interface MonthlyStats {
+  lastAttackDays: number | null;
+  lastAttackDateLabel: string | null;
+  thisMonthCount: number;
+  avgPerMonth: number;
+  longestMigraineFree: number;
+}
+
 const toLocalDateKey = (value: string | Date): string => {
   const date = value instanceof Date ? value : new Date(value);
   const year = date.getFullYear();
@@ -47,7 +54,6 @@ export default function HistoryPage() {
   const [envRows, setEnvRows] = useState<EnvRow[]>([]);
   const [medRows, setMedRows] = useState<MedicationRow[]>([]);
   const [personalRows, setPersonalRows] = useState<PersonalRow[]>([]);
-  const [userLocation, setUserLocation] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -59,14 +65,23 @@ export default function HistoryPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [fetchedEvents, settings] = await Promise.all([
-          getMigraineEvents(),
-          getUserSettings().catch(() => ({ location_name: 'Berlin' })),
-        ]);
+        const fetchedEvents = await getMigraineEvents();
 
+        console.log('History migraine_events loaded:', fetchedEvents);
         setEvents(fetchedEvents);
-        setUserLocation(settings.location_name || 'Berlin');
         setErrorMessage(null);
+
+        if (fetchedEvents.length > 0) {
+          const newestTimestamp = fetchedEvents.reduce((latest, event) => {
+            const ts = Date.parse(event.started_at);
+            return Number.isFinite(ts) && ts > latest ? ts : latest;
+          }, Number.NEGATIVE_INFINITY);
+
+          if (Number.isFinite(newestTimestamp)) {
+            const newestDate = new Date(newestTimestamp);
+            setVisibleMonthDate(new Date(newestDate.getFullYear(), newestDate.getMonth(), 1));
+          }
+        }
 
         if (fetchedEvents.length > 0) {
           const eventIds = fetchedEvents.map((event) => event.id);
@@ -116,10 +131,11 @@ export default function HistoryPage() {
     [events]
   );
 
-  const monthlyStats = useMemo(() => {
+  const monthlyStats = useMemo<MonthlyStats>(() => {
     if (timelineEvents.length === 0) {
       return {
         lastAttackDays: null,
+        lastAttackDateLabel: null,
         thisMonthCount: 0,
         avgPerMonth: 0,
         longestMigraineFree: 0,
@@ -130,10 +146,16 @@ export default function HistoryPage() {
       (a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
     );
     const newest = sortedAsc[sortedAsc.length - 1];
+    const newestDate = new Date(newest.started_at);
     const now = new Date();
     const lastAttackDays = Math.max(0, Math.floor(
-      (now.getTime() - new Date(newest.started_at).getTime()) / (1000 * 60 * 60 * 24)
+      (now.getTime() - newestDate.getTime()) / (1000 * 60 * 60 * 24)
     ));
+    const lastAttackDateLabel = newestDate.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
 
     const thisMonth = now.getMonth();
     const thisYear = now.getFullYear();
@@ -165,6 +187,7 @@ export default function HistoryPage() {
 
     return {
       lastAttackDays,
+      lastAttackDateLabel,
       thisMonthCount,
       avgPerMonth,
       longestMigraineFree,
@@ -356,8 +379,6 @@ export default function HistoryPage() {
 
   return (
     <div className="app-shell">
-      <Navigation showLocationPin={true} locationName={userLocation} />
-
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8 space-y-6">
         {errorMessage && (
           <section className="glass-card p-4 border border-[var(--accent-high)]">
@@ -370,7 +391,11 @@ export default function HistoryPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="glass-card p-4">
               <p className="text-xs text-[var(--text-secondary)] mb-1">Letzte Attacke</p>
-              <p className="text-2xl font-medium">{monthlyStats.lastAttackDays !== null ? `vor ${monthlyStats.lastAttackDays} Tagen` : '—'}</p>
+              <p className="text-2xl font-medium">
+                {monthlyStats.lastAttackDays !== null && monthlyStats.lastAttackDateLabel
+                  ? `${monthlyStats.lastAttackDateLabel} (vor ${monthlyStats.lastAttackDays} Tagen)`
+                  : '—'}
+              </p>
             </div>
             <div className="glass-card p-4">
               <p className="text-xs text-[var(--text-secondary)] mb-1">Dieser Monat</p>
@@ -446,6 +471,8 @@ export default function HistoryPage() {
                         : 'rgba(255, 255, 255, 0.08)',
                     background: cell.severity
                       ? getCalendarSeverityBackground(cell.severity)
+                      : cell.count > 0
+                        ? 'rgba(248, 113, 113, 0.28)'
                       : getCalendarSeverityBackground(null),
                   }}
                 >

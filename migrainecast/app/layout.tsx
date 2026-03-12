@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppGate } from "@/components/AppGate";
+import { Navigation } from "@/components/Navigation";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -22,7 +23,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
         <AppGate>
-          {children}
+          <Navigation />
+          <main style={{ paddingTop: '64px' }}>
+            {children}
+          </main>
         </AppGate>
       </body>
     </html>
