@@ -21,10 +21,10 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
 
   const width = 720;
   const height = 160;
-  const marginTop = 8;
-  const marginRight = 10;
-  const marginBottom = 24;
-  const marginLeft = 30;
+  const marginTop = 0;
+  const marginRight = 0;
+  const marginBottom = 0;
+  const marginLeft = 0;
   const plotWidth = width - marginLeft - marginRight;
   const plotHeight = height - marginTop - marginBottom;
   const chartBottomY = marginTop + plotHeight;
@@ -68,20 +68,13 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
     });
 
   return (
-    <div className="w-full glass-card p-6">
-      <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">72h Risikoprofil</h2>
+    <div className="w-full glass-card overflow-hidden">
+      <div className="px-6 pt-6 pb-3">
+        <h2 className="text-xl font-semibold text-[var(--text-primary)]">72h Risikoprofil</h2>
+      </div>
 
       <div className="w-full h-[120px] md:h-[160px]">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" role="img" aria-label="KRII-Verlauf der naechsten 72 Stunden">
-          <defs>
-            <clipPath id="risk-profile-clip">
-              <rect x={marginLeft} y={marginTop} width={plotWidth} height={plotHeight} />
-            </clipPath>
-          </defs>
-
-          <rect x={marginLeft} y={toY(60)} width={plotWidth} height={toY(0) - toY(60)} fill="rgba(248,113,113,0.1)" />
-          <rect x={marginLeft} y={toY(30)} width={plotWidth} height={toY(60) - toY(30)} fill="rgba(251,146,60,0.1)" />
-
           {[0, 30, 60, 100].map((value) => (
             <g key={value}>
               <line
@@ -89,13 +82,13 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
                 y1={toY(value)}
                 x2={width - marginRight}
                 y2={toY(value)}
-                stroke="rgba(255,255,255,0.12)"
+                stroke="rgba(255,255,255,0.05)"
                 strokeWidth="1"
               />
               <text
-                x={marginLeft - 6}
-                y={toY(value) + 4}
-                textAnchor="end"
+                x={8}
+                y={Math.min(toY(value) + 10, height - 6)}
+                textAnchor="start"
                 fontSize="10"
                 fill="rgba(255,255,255,0.55)"
               >
@@ -115,12 +108,12 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
                   y1={marginTop}
                   x2={x}
                   y2={chartBottomY}
-                  stroke="rgba(255,255,255,0.08)"
+                  stroke="rgba(255,255,255,0.05)"
                   strokeWidth="1"
                 />
                 <text
                   x={x}
-                  y={height - 6}
+                  y={height - 8}
                   textAnchor="middle"
                   fontSize="10"
                   fill="rgba(255,255,255,0.55)"
@@ -145,7 +138,6 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
 
           <path
             d={path}
-            clipPath="url(#risk-profile-clip)"
             fill="none"
             stroke="rgba(240,240,240,0.95)"
             strokeWidth="2"

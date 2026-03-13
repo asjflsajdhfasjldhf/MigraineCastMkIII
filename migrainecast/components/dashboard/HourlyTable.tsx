@@ -1,7 +1,7 @@
 // HourlyTable Component - 72-hour forecast table
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { HourlyForecast } from '@/types';
 
 interface HourlyTableProps {
@@ -9,6 +9,8 @@ interface HourlyTableProps {
 }
 
 export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   const formatPressureDelta = (value: number | null | undefined) => {
     if (value === null || value === undefined) return '—';
     const arrow = value > 0 ? '↑' : value < 0 ? '↓' : '→';
@@ -17,14 +19,22 @@ export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
 
   return (
     <div className="w-full glass-card p-6">
-      <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
-        72-Stunden-Vorschau
-      </h2>
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="w-full flex items-center justify-between text-left"
+        aria-expanded={isOpen}
+      >
+        <h2 className="text-xl font-semibold text-[var(--text-primary)]">72-Stunden-Vorschau</h2>
+        <span className="text-[var(--text-secondary)] text-lg leading-none">{isOpen ? '▾' : '▸'}</span>
+      </button>
 
-      {data.length === 0 ? (
+      {!isOpen ? (
+        <p className="text-[var(--text-secondary)] mt-4">Ausgeklappt zeigt die Tabelle die nächsten 72 Stunden.</p>
+      ) : data.length === 0 ? (
         <p className="text-[var(--text-secondary)]">Keine Daten verfügbar</p>
       ) : (
-        <>
+        <div className="mt-4">
           <div className="md:hidden space-y-3">
             {data.slice(0, 72).map((hour, idx) => {
               const time = new Date(hour.time);
@@ -152,7 +162,7 @@ export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

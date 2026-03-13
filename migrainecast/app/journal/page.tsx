@@ -2,41 +2,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { JournalForm } from '@/components/journal/JournalForm';
 import {
   RetrospectiveEntryData,
   RetrospectiveJournalForm,
 } from '@/components/journal/RetrospectiveJournalForm';
-import { JournalList } from '@/components/journal/JournalList';
-import { EventDetail } from '@/components/journal/EventDetail';
 import {
-  getMigraineEvents,
-  getMigraineEvent,
   createMigraineEvent,
-  updateMigraineEvent,
   addEnvironmentSnapshot,
   getUserSettings,
 } from '@/lib/supabase';
 import {
-  MigraineEvent,
   EnvironmentSnapshot,
-  PersonalFactors,
-  Medication,
 } from '@/types';
 import { getHistoricalPointWeather, getHistoricalWeather } from '@/lib/weather';
 import { getHistoricalAirQuality } from '@/lib/air-quality';
 
 export default function JournalPage() {
-  const [events, setEvents] = useState<MigraineEvent[]>([]);
   const [entryMode, setEntryMode] = useState<'now' | 'past'>('now');
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<{
-    event: MigraineEvent;
-    medications: Medication[];
-    environment: EnvironmentSnapshot | null;
-    personal: PersonalFactors | null;
-  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -46,10 +29,8 @@ export default function JournalPage() {
   const [userLocationLon, setUserLocationLon] = useState(13.405);
 
   useEffect(() => {
-    const loadEvents = async () => {
+    const loadPageData = async () => {
       try {
-        const fetchedEvents = await getMigraineEvents();
-        setEvents(fetchedEvents);
         const settings = await getUserSettings().catch(() => ({
           location_name: 'Berlin',
           location_lat: '52.52',
@@ -59,46 +40,14 @@ export default function JournalPage() {
         setUserLocationLat(parseFloat(settings.location_lat || '52.52'));
         setUserLocationLon(parseFloat(settings.location_lon || '13.405'));
         setErrorMessage(null);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading events:', error);
-        setErrorMessage('Ereignisse konnten nicht geladen werden. Bitte Supabase prüfen.');
-        setLoading(false);
-      }
-    };
-
-    loadEvents();
-  }, []);
-
-  useEffect(() => {
-    const loadSelectedEvent = async () => {
-      if (!selectedEventId) {
-        setSelectedEvent(null);
-        return;
-      }
-
-      try {
+      loadPageData();
         const event = await getMigraineEvent(selectedEventId);
         setSelectedEvent(event);
       } catch (error) {
         console.error('Error loading event:', error);
       }
-    };
-
-    loadSelectedEvent();
-  }, [selectedEventId]);
-
-  const handleSaveForm = async (data: any) => {
-    try {
-      setIsSaving(true);
-
-      if (!selectedEventId) {
-        // Create new event
         const newEvent = await createMigraineEvent(data as any);
-        setSelectedEventId(newEvent.id);
-        setEvents([newEvent, ...events]);
 
-        // If stage is onset, automatically fetch environmental data
         if (data.stage === 'onset') {
           try {
             const settings = await getUserSettings();
@@ -142,7 +91,6 @@ export default function JournalPage() {
           }
         }
 
-        // If stage is active and has medications, save them
         if (data.stage === 'active' && data.medications && data.medications.length > 0) {
           try {
             for (const med of data.medications) {
@@ -165,7 +113,6 @@ export default function JournalPage() {
           }
         }
 
-        // If stage is complete, save personal factors
         if (data.stage === 'complete') {
           try {
             await fetch('/api/personal-factors', {
@@ -191,60 +138,6 @@ export default function JournalPage() {
             console.error('Error saving personal factors:', error);
           }
         }
-      } else {
-        // Update existing event
-        const updated = await updateMigraineEvent(selectedEventId, data);
-        setEvents(events.map((e) => (e.id === updated.id ? updated : e)));
-        
-        if (selectedEvent) {
-          setSelectedEvent({
-            ...selectedEvent,
-            event: updated,
-          });
-        }
-
-        // Handle medications for active stage
-        if (data.stage === 'active' && data.medications && data.medications.length > 0) {
-          try {
-            for (const med of data.medications) {
-              if (med.name && med.taken_at) {
-                await fetch('/api/medication', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    event_id: selectedEventId,
-                    name: med.name,
-                    taken_at: convertTimeToISO(data.ended_at, med.taken_at),
-                    dose_mg: med.dose_mg,
-                    effectiveness: med.effectiveness,
-                  }),
-                });
-              }
-            }
-          } catch (error) {
-            console.error('Error saving medications:', error);
-          }
-        }
-
-        // Handle personal factors for complete stage
-        if (data.stage === 'complete') {
-          try {
-            await fetch('/api/personal-factors', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                event_id: selectedEventId,
-                sleep_hours: data.sleep_hours,
-                sleep_bedtime: data.sleep_bedtime,
-                sleep_waketime: data.sleep_waketime,
-                stress_level: data.stress_level,
-                alcohol_yesterday: data.alcohol_yesterday,
-                caffeine_withdrawal: data.caffeine_withdrawal,
-                meals_regular: data.meals_regular,
-                hydration: data.hydration,
-                sensory_overload: data.sensory_overload,
-                masking_intensity: data.masking_intensity,
-                social_exhaustion: data.social_exhaustion,
                 overstimulation: data.overstimulation,
               }),
             });
@@ -328,9 +221,6 @@ export default function JournalPage() {
         krii_value: null,
         stage: 'complete',
       });
-
-      setSelectedEventId(newEvent.id);
-      setEvents([newEvent, ...events]);
 
       const lat = data.location_lat || userLocationLat;
       const lon = data.location_lon || userLocationLon;
@@ -442,11 +332,10 @@ export default function JournalPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             {entryMode === 'now' ? (
               <JournalForm
-                event={selectedEvent?.event || null}
+                event={null}
                 onSave={handleSaveForm}
                 isLoading={isSaving}
               />
@@ -462,33 +351,7 @@ export default function JournalPage() {
               />
             )}
           </div>
-
-          {/* List */}
-          <div>
-            <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">
-              Ereignisse
-            </h2>
-            <JournalList
-              events={events}
-              onSelectEvent={setSelectedEventId}
-            />
-          </div>
         </div>
-
-        {/* Event Details */}
-        {selectedEvent && (
-          <div className="mt-8">
-            <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-6">
-              Ereignisdetails
-            </h2>
-            <EventDetail
-              event={selectedEvent.event}
-              medications={selectedEvent.medications}
-              environment={selectedEvent.environment}
-              personal={selectedEvent.personal}
-            />
-          </div>
-        )}
       </div>
     </div>
   );

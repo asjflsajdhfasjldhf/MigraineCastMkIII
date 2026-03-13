@@ -48,19 +48,20 @@ export const Navigation: React.FC = () => {
 
   const navItems = [
     { href: '/', label: 'Dashboard' },
-    { href: '/journal', label: 'Tagebuch' },
-    { href: '/history', label: 'Verlauf' },
-    { href: '/analysis', label: 'Analyse' },
+    { href: '/analyse', label: 'Analyse' },
     { href: '/settings', label: 'Einstellungen' },
   ];
 
   useEffect(() => {
-    const routeOrder = ['/', '/journal', '/history', '/analysis', '/settings'];
+    const routeOrder = ['/', '/analyse', '/settings'];
     const swipeThreshold = 50;
     let touchStartX: number | null = null;
     let touchStartY: number | null = null;
 
     const normalizePathname = (path: string): string => {
+      if (path.startsWith('/analysis') || path.startsWith('/history')) {
+        return '/analyse';
+      }
       const knownRoute = routeOrder.find((route) =>
         route === '/' ? path === '/' : path.startsWith(route)
       );
