@@ -367,7 +367,7 @@ export default function AnalysePage() {
 
   const triggerStats = useMemo(() => {
     if (timelineEvents.length === 0 || envRows.length === 0) {
-      return [] as Array<{ name: string; pct: number }>;
+      return [] as Array<{ name: string; count: number; pct: number }>;
     }
 
     const counter = new Map<string, number>();
@@ -798,36 +798,49 @@ export default function AnalysePage() {
           </section>
         )}
 
+        {/* Persistent top bar: always visible regardless of tab */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="glass-card p-6">
+            <p className="text-[var(--text-secondary)] text-sm mb-2">Gesamtereignisse</p>
+            <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">{analysisStats.totalEvents}</p>
+          </div>
+          <div className="glass-card p-6">
+            <p className="text-[var(--text-secondary)] text-sm mb-2">Ø Schweregrad</p>
+            <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">
+              {analysisStats.averageSeverity ? `${analysisStats.averageSeverity.toFixed(1)}/10` : '—'}
+            </p>
+          </div>
+          <div className="glass-card p-6 flex items-center justify-center">
+            <div className="inline-flex items-center rounded-full p-1 bg-[rgba(255,255,255,0.06)]">
+              <button
+                type="button"
+                onClick={() => setActiveTab('history')}
+                className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
+                  activeTab === 'history'
+                    ? 'text-white bg-[rgba(255,255,255,0.15)]'
+                    : 'text-[var(--text-secondary)]'
+                }`}
+              >
+                Verlauf
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('analysis')}
+                className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
+                  activeTab === 'analysis'
+                    ? 'text-white bg-[rgba(255,255,255,0.15)]'
+                    : 'text-[var(--text-secondary)]'
+                }`}
+              >
+                Analyse
+              </button>
+            </div>
+          </div>
+        </div>
+
         {activeTab === 'history' ? (
           <>
             <section className="glass-card p-6">
-              <div className="flex items-center justify-between mb-4 gap-3">
-                <h2 className="text-xl font-medium">Schnellstatistiken</h2>
-                <div className="inline-flex items-center rounded-full p-1 bg-[rgba(255,255,255,0.06)]">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('history')}
-                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
-                      activeTab === 'history'
-                        ? 'text-white bg-[rgba(255,255,255,0.15)]'
-                        : 'text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    Verlauf
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('analysis')}
-                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
-                      activeTab === 'analysis'
-                        ? 'text-white bg-[rgba(255,255,255,0.15)]'
-                        : 'text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    Analyse
-                  </button>
-                </div>
-              </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div className="glass-card p-3.5">
                   <p className="text-xs text-[var(--text-secondary)] mb-1">Letzte Attacke</p>
@@ -1074,47 +1087,6 @@ export default function AnalysePage() {
           </>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="glass-card p-6">
-                <p className="text-[var(--text-secondary)] text-sm mb-2">Gesamtereignisse</p>
-                <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">{analysisStats.totalEvents}</p>
-              </div>
-
-              <div className="glass-card p-6">
-                <p className="text-[var(--text-secondary)] text-sm mb-2">Ø Schweregrad</p>
-                <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">
-                  {analysisStats.averageSeverity ? `${analysisStats.averageSeverity.toFixed(1)}/10` : '—'}
-                </p>
-              </div>
-
-              <div className="glass-card p-6 flex items-center justify-center">
-                <div className="inline-flex items-center rounded-full p-1 bg-[rgba(255,255,255,0.06)]">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('history')}
-                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
-                      activeTab === 'history'
-                        ? 'text-white bg-[rgba(255,255,255,0.15)]'
-                        : 'text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    Verlauf
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('analysis')}
-                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
-                      activeTab === 'analysis'
-                        ? 'text-white bg-[rgba(255,255,255,0.15)]'
-                        : 'text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    Analyse
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {analysisStats.severityDistribution.length > 0 && <SeverityChart data={analysisStats.severityDistribution} />}
             <CorrelationTable data={analysisStats.correlations} />
             <LagAnalysis data={analysisStats.lagData} />

@@ -17,34 +17,52 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
   const [isShaking, setIsShaking] = useState(false);
   const [rememberFor30Days, setRememberFor30Days] = useState(true);
 
-  const submitByKeyboard = useCallback(() => {
-    if (entered.length !== 4 || isFading) return;
-
-    if (entered === PIN) {
-      try {
-        if (rememberFor30Days) {
-          localStorage.setItem(PIN_STORAGE_KEY, Date.now().toString());
-        } else {
-          localStorage.removeItem(PIN_STORAGE_KEY);
-        }
-      } catch (error) {
-        console.error('Error writing PIN persistence to localStorage:', error);
+  const persistUnlockPreference = useCallback(() => {
+    try {
+      if (rememberFor30Days) {
+        localStorage.setItem(PIN_STORAGE_KEY, Date.now().toString());
+      } else {
+        localStorage.removeItem(PIN_STORAGE_KEY);
       }
-
-      setIsFading(true);
-      window.setTimeout(() => {
-        setIsUnlocked(true);
-        setIsFading(false);
-      }, 260);
-      return;
+    } catch (error) {
+      console.error('Error writing PIN persistence to localStorage:', error);
     }
+  }, [rememberFor30Days]);
 
+  const unlockGate = useCallback(() => {
+    persistUnlockPreference();
+    setIsFading(true);
+    window.setTimeout(() => {
+      setIsUnlocked(true);
+      setIsFading(false);
+    }, 260);
+  }, [persistUnlockPreference]);
+
+  const rejectPin = useCallback(() => {
     setIsShaking(true);
     window.setTimeout(() => {
       setEntered('');
       setIsShaking(false);
     }, 360);
-  }, [entered, isFading, rememberFor30Days]);
+  }, []);
+
+  const submitPin = useCallback(
+    (value: string) => {
+      if (value.length !== 4 || isFading) return;
+
+      if (value === PIN) {
+        unlockGate();
+        return;
+      }
+
+      rejectPin();
+    },
+    [isFading, rejectPin, unlockGate]
+  );
+
+  const submitByKeyboard = useCallback(() => {
+    submitPin(entered);
+  }, [entered, submitPin]);
 
   useEffect(() => {
     try {
@@ -107,29 +125,7 @@ export const AppGate: React.FC<AppGateProps> = ({ children }) => {
     setEntered(next);
 
     if (next.length === 4) {
-      if (next === PIN) {
-        try {
-          if (rememberFor30Days) {
-            localStorage.setItem(PIN_STORAGE_KEY, Date.now().toString());
-          } else {
-            localStorage.removeItem(PIN_STORAGE_KEY);
-          }
-        } catch (error) {
-          console.error('Error writing PIN persistence to localStorage:', error);
-        }
-
-        setIsFading(true);
-        window.setTimeout(() => {
-          setIsUnlocked(true);
-          setIsFading(false);
-        }, 260);
-      } else {
-        setIsShaking(true);
-        window.setTimeout(() => {
-          setEntered('');
-          setIsShaking(false);
-        }, 360);
-      }
+      submitPin(next);
     }
   };
 
