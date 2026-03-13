@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export const Navigation: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [dbOnline, setDbOnline] = useState<boolean | null>(null);
 
@@ -52,6 +53,64 @@ export const Navigation: React.FC = () => {
     { href: '/analysis', label: 'Analyse' },
     { href: '/settings', label: 'Einstellungen' },
   ];
+
+  useEffect(() => {
+    const routeOrder = ['/', '/journal', '/history', '/analysis', '/settings'];
+    const swipeThreshold = 50;
+    let touchStartX: number | null = null;
+    let touchStartY: number | null = null;
+
+    const normalizePathname = (path: string): string => {
+      const knownRoute = routeOrder.find((route) =>
+        route === '/' ? path === '/' : path.startsWith(route)
+      );
+      return knownRoute || path;
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (window.innerWidth >= 768) return;
+      if (event.touches.length !== 1) return;
+
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, button')) return;
+
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (window.innerWidth >= 768) return;
+      if (touchStartX === null || touchStartY === null) return;
+      if (event.changedTouches.length !== 1) return;
+
+      const deltaX = event.changedTouches[0].clientX - touchStartX;
+      const deltaY = event.changedTouches[0].clientY - touchStartY;
+      touchStartX = null;
+      touchStartY = null;
+
+      if (Math.abs(deltaX) < swipeThreshold) return;
+      if (Math.abs(deltaY) > Math.abs(deltaX)) return;
+
+      const currentRoute = normalizePathname(pathname);
+      const currentIndex = routeOrder.indexOf(currentRoute);
+      if (currentIndex === -1) return;
+
+      const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
+      const nextRoute = routeOrder[nextIndex];
+      if (!nextRoute) return;
+
+      router.push(nextRoute);
+      setMenuOpen(false);
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [pathname, router]);
 
   const handleLinkClick = () => {
     setMenuOpen(false);

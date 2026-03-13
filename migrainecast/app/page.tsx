@@ -7,6 +7,7 @@ import { WeatherSummary } from '@/components/dashboard/WeatherSummary';
 import { RiskAlert } from '@/components/dashboard/RiskAlert';
 import { HourlyTable } from '@/components/dashboard/HourlyTable';
 import { DailyForecast } from '@/components/dashboard/DailyForecast';
+import { RiskProfileChart } from '@/components/dashboard/RiskProfileChart';
 import {
   EnvironmentSnapshot,
   HourlyForecast,
@@ -429,6 +430,11 @@ export default function DashboardPage() {
         {/* Daily Forecast */}
         <div className="mb-6">
           <DailyForecast data={dailyData} />
+        </div>
+
+        {/* 72h Risk Profile */}
+        <div className="mb-6">
+          <RiskProfileChart data={hourlyData} />
         </div>
 
         {/* Hourly Table */}

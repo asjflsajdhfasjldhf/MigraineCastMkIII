@@ -7,7 +7,6 @@ import { SeverityChart } from '@/components/analysis/SeverityChart';
 import { LagAnalysis } from '@/components/analysis/LagAnalysis';
 import { NeurodivergenceChart } from '@/components/analysis/NeurodivergenceChart';
 import { getMigraineEvents, supabase } from '@/lib/supabase';
-import { MigraineEvent } from '@/types';
 
 type CorrelationRow = {
   factor: string;
@@ -26,6 +25,7 @@ type AnalysisStats = {
   averageSeverity: number;
   severityDistribution: Array<{ severity: number; count: number }>;
   correlations: CorrelationRow[];
+  lagData: Array<{ hourBefore: number; averagePressureChange: number; frequency: number }>;
   neurodivergence: NeuroRow[];
   hasPersonalFactors: boolean;
 };
@@ -48,6 +48,10 @@ type EnvironmentSnapshotRow = {
   pressure: number | null;
   pressure_change_6h: number | null;
   pressure_change_24h: number | null;
+  pressure_6h_ago: number | null;
+  pressure_12h_ago: number | null;
+  pressure_24h_ago: number | null;
+  pressure_48h_ago: number | null;
   temperature: number | null;
   temp_change_6h: number | null;
   humidity: number | null;
@@ -64,6 +68,7 @@ export default function AnalysisPage() {
     averageSeverity: 0,
     severityDistribution: [],
     correlations: [],
+    lagData: [],
     neurodivergence: [],
     hasPersonalFactors: false,
   });
@@ -85,6 +90,7 @@ export default function AnalysisPage() {
             totalEvents: 0,
             averageSeverity: 0,
             correlations: [],
+            lagData: [],
             severityDistribution: [],
             neurodivergence: [],
             hasPersonalFactors: false,
@@ -116,7 +122,8 @@ export default function AnalysisPage() {
         // Symptom correlations from migraine_events.symptoms
         const symptomCounter = new Map<string, number>();
         eventsWithDate.forEach((event) => {
-          event.symptoms.forEach((symptom) => {
+          const symptoms = Array.isArray(event.symptoms) ? event.symptoms : [];
+          symptoms.forEach((symptom) => {
             symptomCounter.set(symptom, (symptomCounter.get(symptom) || 0) + 1);
           });
         });
@@ -135,13 +142,14 @@ export default function AnalysisPage() {
         console.log('[Analysis] Symptom correlations:', symptomCorrelations);
 
         const eventIds = eventsWithDate.map((event) => event.id);
+        const eventIdSet = new Set(eventIds);
 
         // Load environment_snapshots
         console.log('[Analysis] Loading environment_snapshots for event IDs:', eventIds);
         const { data: envSnapshots, error: envError } = await supabase
           .from('environment_snapshots')
           .select(
-            'event_id, pressure, pressure_change_6h, pressure_change_24h, temperature, temp_change_6h, humidity, wind_speed, uv_index, air_quality_pm25, season'
+            'event_id, pressure, pressure_change_6h, pressure_change_24h, pressure_6h_ago, pressure_12h_ago, pressure_24h_ago, pressure_48h_ago, temperature, temp_change_6h, humidity, wind_speed, uv_index, air_quality_pm25, season'
           )
           .in('event_id', eventIds);
 
@@ -152,6 +160,23 @@ export default function AnalysisPage() {
 
         const envRows = (envSnapshots || []) as EnvironmentSnapshotRow[];
         console.log('[Analysis] Environment snapshots loaded:', envRows.length, envRows.slice(0, 3));
+
+        const envEventIdSet = new Set(envRows.map((row) => row.event_id));
+        const matchedEventIds = eventIds.filter((id) => envEventIdSet.has(id));
+        const missingSnapshotEventIds = eventIds.filter((id) => !envEventIdSet.has(id));
+        const orphanSnapshotEventIds = envRows
+          .map((row) => row.event_id)
+          .filter((id) => !eventIdSet.has(id));
+
+        console.log('[Analysis] JOIN check migraine_events <-> environment_snapshots', {
+          migraineEvents: eventsWithDate.length,
+          environmentSnapshots: envRows.length,
+          matchedEventIds: matchedEventIds.length,
+          missingSnapshotEventIds: missingSnapshotEventIds.length,
+          orphanSnapshotEventIds: orphanSnapshotEventIds.length,
+          sampleMissingSnapshotEventIds: missingSnapshotEventIds.slice(0, 10),
+          sampleOrphanSnapshotEventIds: orphanSnapshotEventIds.slice(0, 10),
+        });
 
         // Environment factor correlations
         const envCorrelations: CorrelationRow[] = [];
@@ -246,6 +271,43 @@ export default function AnalysisPage() {
 
         console.log('[Analysis] Environment correlations:', envCorrelations);
 
+        const lagCandidates = envRows
+          .map((row) => {
+            let change6h = row.pressure_change_6h;
+            if (
+              (change6h === null || !Number.isFinite(change6h)) &&
+              row.pressure !== null &&
+              row.pressure_6h_ago !== null
+            ) {
+              change6h = row.pressure - row.pressure_6h_ago;
+            }
+
+            if (change6h === null || !Number.isFinite(change6h)) {
+              return null;
+            }
+
+            return change6h;
+          })
+          .filter((value): value is number => value !== null);
+
+        const lagData =
+          lagCandidates.length > 0
+            ? [
+                {
+                  hourBefore: 6,
+                  averagePressureChange:
+                    lagCandidates.reduce((sum, value) => sum + value, 0) / lagCandidates.length,
+                  frequency: (lagCandidates.length / Math.max(envRows.length, 1)) * 100,
+                },
+              ]
+            : [];
+
+        console.log('[Analysis] Pressure lag data (6h):', {
+          lagSampleCount: lagCandidates.length,
+          totalEnvRows: envRows.length,
+          lagData,
+        });
+
         // Load personal factors
         console.log('[Analysis] Loading personal_factors...');
         const { data: personalFactors, error: personalError } = await supabase
@@ -264,32 +326,6 @@ export default function AnalysisPage() {
         console.log('[Analysis] Personal factors loaded:', personalRows.length, personalRows.slice(0, 3));
 
         const hasPersonalFactors = personalRows.length > 0;
-
-        const personalTriggerDefs: Array<{
-          label: string;
-          pick: (row: PersonalFactorRow) => boolean;
-        }> = [
-          { label: 'Hoher Stress (≥4)', pick: (row) => (row.stress_level ?? 0) >= 4 },
-          { label: 'Wenig Schlaf (<6.5h)', pick: (row) => (row.sleep_hours ?? 99) < 6.5 },
-          { label: 'Niedrige Hydration (≤2)', pick: (row) => (row.hydration ?? 99) <= 2 },
-          { label: 'Alkohol am Vortag', pick: (row) => row.alcohol_yesterday === true },
-          { label: 'Koffeinentzug', pick: (row) => row.caffeine_withdrawal === true },
-        ];
-
-        const personalCorrelations: CorrelationRow[] =
-          personalRows.length === 0
-            ? []
-            : personalTriggerDefs.map((def) => {
-                const matching = personalRows.filter(def.pick).length;
-                const ratio = matching / personalRows.length;
-                return {
-                  factor: def.label,
-                  correlation: Math.min(1, ratio),
-                  frequency: ratio * 100,
-                };
-              });
-
-        console.log('[Analysis] Personal correlations:', personalCorrelations);
 
         // Neurodiversity correlations
         const neuroDefs: Array<{
@@ -326,8 +362,8 @@ export default function AnalysisPage() {
 
         console.log('[Analysis] Neurodiversity correlations:', neurodivergence);
 
-        // Combine all correlations
-        const combinedCorrelations = [...symptomCorrelations, ...envCorrelations, ...personalCorrelations]
+        // Combine correlations (migraine_events + environment_snapshots only)
+        const combinedCorrelations = [...symptomCorrelations, ...envCorrelations]
           .sort((a, b) => b.correlation - a.correlation)
           .slice(0, 10);
 
@@ -338,6 +374,7 @@ export default function AnalysisPage() {
           averageSeverity,
           severityDistribution,
           correlations: combinedCorrelations,
+          lagData,
           neurodivergence,
           hasPersonalFactors,
         });
@@ -403,21 +440,12 @@ export default function AnalysisPage() {
         </div>
 
         <div className="mb-6">
-          <LagAnalysis data={[]} />
+          <LagAnalysis data={stats.lagData} />
         </div>
 
-        {stats.hasPersonalFactors ? (
+        {stats.hasPersonalFactors && (
           <div className="mb-6">
             <NeurodivergenceChart data={stats.neurodivergence} />
-          </div>
-        ) : (
-          <div className="glass-card p-6 mb-6">
-            <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
-              Neurodivergenz-Korrelation
-            </h2>
-            <p className="text-[var(--text-secondary)] text-sm">
-              Wird verfügbar sobald Einträge mit persönlichen Faktoren erfasst sind.
-            </p>
           </div>
         )}
       </div>
