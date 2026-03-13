@@ -129,6 +129,72 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   const strongestFactor = getStrongestFactor();
   const yesterdayComparison = getYesterdayComparison();
 
+  const todaySparkline = (() => {
+    if (!hourlyData || hourlyData.length === 0) return null;
+
+    const now = new Date();
+    const isSameDay = (date: Date) =>
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate();
+
+    const points = hourlyData
+      .filter((hour) => {
+        const date = new Date(hour.time);
+        return isSameDay(date);
+      })
+      .map((hour) => {
+        const date = new Date(hour.time);
+        return {
+          ts: date.getTime(),
+          value: Math.max(0, Math.min(100, Math.round(hour.krii_value * 100))),
+          hour: date.getHours(),
+        };
+      })
+      .sort((a, b) => a.ts - b.ts);
+
+    if (points.length === 0) return null;
+
+    const width = 320;
+    const height = 48;
+
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(now);
+    dayEnd.setHours(23, 59, 59, 999);
+    const dayStartTs = dayStart.getTime();
+    const dayEndTs = dayEnd.getTime();
+    const totalMs = Math.max(1, dayEndTs - dayStartTs);
+
+    const toX = (ts: number) => ((ts - dayStartTs) / totalMs) * width;
+    const toY = (value: number) => height - (value / 100) * height;
+
+    const path = points
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${toX(point.ts).toFixed(2)} ${toY(point.value).toFixed(2)}`)
+      .join(' ');
+
+    let currentPoint = points[0];
+    for (const point of points) {
+      if (point.ts <= now.getTime()) {
+        currentPoint = point;
+      } else {
+        break;
+      }
+    }
+
+    const peakPoint = points.reduce((peak, point) => (point.value > peak.value ? point : peak), points[0]);
+
+    return {
+      width,
+      height,
+      path,
+      currentX: toX(currentPoint.ts),
+      currentY: toY(currentPoint.value),
+      peakValue: peakPoint.value,
+      peakHourLabel: `${String(peakPoint.hour).padStart(2, '0')}h`,
+    };
+  })();
+
   return (
     <div className="w-full glass-card p-6">
       {/* Header: Title and Percentage */}
@@ -162,6 +228,32 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
           }}
         />
       </div>
+
+      {todaySparkline && (
+        <div className="mb-4">
+          <div className="h-12 w-full relative">
+            <svg viewBox={`0 0 ${todaySparkline.width} ${todaySparkline.height}`} className="w-full h-full" aria-label="KRII Tagesverlauf">
+              <path
+                d={todaySparkline.path}
+                fill="none"
+                stroke="rgba(255,255,255,0.6)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle
+                cx={todaySparkline.currentX}
+                cy={todaySparkline.currentY}
+                r="3"
+                fill="white"
+              />
+            </svg>
+            <p className="absolute top-0 right-0 text-[11px] text-[var(--text-secondary)]">
+              Peak {todaySparkline.peakValue}% {todaySparkline.peakHourLabel}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Divider */}
       <div className="border-t border-white/10 mb-4" />

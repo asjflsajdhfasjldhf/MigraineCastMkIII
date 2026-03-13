@@ -5,7 +5,6 @@ import { CorrelationTable } from '@/components/analysis/CorrelationTable';
 import { LagAnalysis } from '@/components/analysis/LagAnalysis';
 import { NeurodivergenceChart } from '@/components/analysis/NeurodivergenceChart';
 import { SeverityChart } from '@/components/analysis/SeverityChart';
-import { EventDetail } from '@/components/journal/EventDetail';
 import { JournalList } from '@/components/journal/JournalList';
 import { getMigraineEvent, getMigraineEvents, supabase } from '@/lib/supabase';
 import {
@@ -124,13 +123,6 @@ const resolvePressureMetrics = (row: EnvRow) => {
   return { delta6, delta12, delta24 };
 };
 
-const formatGap = (hours: number | null) => {
-  if (hours === null || !Number.isFinite(hours)) return '—';
-  if (hours >= 48) return `${Math.round(hours / 24)} Tage`;
-  if (hours >= 24) return `${(hours / 24).toFixed(1)} Tage`;
-  return `${Math.round(hours)} Std.`;
-};
-
 export default function AnalysePage() {
   const [activeTab, setActiveTab] = useState<AnalyseTab>('history');
   const [events, setEvents] = useState<MigraineEvent[]>([]);
@@ -145,6 +137,7 @@ export default function AnalysePage() {
     environment: EnvironmentSnapshot | null;
     personal: PersonalFactors | null;
   } | null>(null);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [visibleMonthDate, setVisibleMonthDate] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -285,8 +278,7 @@ export default function AnalysePage() {
       return {
         lastAttackDateLabel: null as string | null,
         thisMonthCount: 0,
-        avgPerMonth: 0,
-        longestGapHours: null as number | null,
+        averageSeverity: 0,
       };
     }
 
@@ -308,33 +300,26 @@ export default function AnalysePage() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
 
-    const byMonth = new Map<string, number>();
-    timelineEvents.forEach((event) => {
-      const d = new Date(event.started_at);
-      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
-      byMonth.set(key, (byMonth.get(key) || 0) + 1);
-    });
-
-    let longestGapHours: number | null = null;
-    for (let index = 1; index < sortedAsc.length; index++) {
-      const prev = new Date(sortedAsc[index - 1].started_at).getTime();
-      const next = new Date(sortedAsc[index].started_at).getTime();
-      const diffHours = (next - prev) / (1000 * 60 * 60);
-      if (longestGapHours === null || diffHours > longestGapHours) {
-        longestGapHours = diffHours;
-      }
-    }
+    const averageSeverity =
+      timelineEvents.reduce((sum, event) => sum + event.severity, 0) / timelineEvents.length;
 
     return {
       lastAttackDateLabel,
       thisMonthCount,
-      avgPerMonth:
-        byMonth.size > 0
-          ? Array.from(byMonth.values()).reduce((sum, value) => sum + value, 0) / byMonth.size
-          : 0,
-      longestGapHours,
+      averageSeverity,
     };
   }, [timelineEvents]);
+
+  const dominantTrigger = useMemo(() => {
+    return triggerStats.length > 0 ? triggerStats[0].name : '—';
+  }, [triggerStats]);
+
+  const attackCountLabel = (count: number) => `${count} ${count === 1 ? 'Attacke' : 'Attacken'}`;
+
+  const openEventModal = (eventId: string) => {
+    setSelectedEventId(eventId);
+    setIsEventModalOpen(true);
+  };
 
   const triggerStats = useMemo(() => {
     if (timelineEvents.length === 0 || envRows.length === 0) {
@@ -768,22 +753,22 @@ export default function AnalysePage() {
           <>
             <section className="glass-card p-6">
               <h2 className="text-xl font-medium mb-4">Schnellstatistiken</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 <div className="glass-card p-4">
                   <p className="text-xs text-[var(--text-secondary)] mb-1">Letzte Attacke</p>
-                  <p className="text-2xl font-medium">{historyStats.lastAttackDateLabel || '—'}</p>
+                  <p className="text-xl md:text-2xl font-medium">{historyStats.lastAttackDateLabel || '—'}</p>
                 </div>
                 <div className="glass-card p-4">
                   <p className="text-xs text-[var(--text-secondary)] mb-1">Dieser Monat</p>
-                  <p className="text-2xl font-medium">{historyStats.thisMonthCount} Attacken</p>
+                  <p className="text-xl md:text-2xl font-medium">{attackCountLabel(historyStats.thisMonthCount)}</p>
                 </div>
                 <div className="glass-card p-4">
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">Durchschnitt</p>
-                  <p className="text-2xl font-medium">{historyStats.avgPerMonth.toFixed(1)} / Monat</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Ø Schweregrad</p>
+                  <p className="text-xl md:text-2xl font-medium">{historyStats.averageSeverity.toFixed(1)} / 10</p>
                 </div>
                 <div className="glass-card p-4">
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">Längste migränefreie Phase</p>
-                  <p className="text-2xl font-medium">{formatGap(historyStats.longestGapHours)}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Häufigster Trigger</p>
+                  <p className="text-sm md:text-base font-medium leading-snug">{dominantTrigger}</p>
                 </div>
               </div>
             </section>
@@ -838,8 +823,15 @@ export default function AnalysePage() {
                     <button
                       key={`${cell.date || 'empty'}-${index}`}
                       type="button"
-                      disabled={!cell.date}
-                      onClick={() => cell.date && setSelectedDate(cell.date)}
+                      disabled={!cell.date || cell.count === 0}
+                      onClick={() => {
+                        if (!cell.date || cell.count === 0) return;
+                        setSelectedDate(cell.date);
+                        const dayEvents = calendarData.byDate.get(cell.date) || [];
+                        if (dayEvents.length > 0) {
+                          openEventModal(dayEvents[0].id);
+                        }
+                      }}
                       className="h-12 rounded-lg border text-center disabled:opacity-20 relative"
                       style={{
                         borderColor: isSelected
@@ -970,21 +962,10 @@ export default function AnalysePage() {
               <h2 className="text-xl font-medium mb-4">Ereignisse</h2>
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-6">
                 <div>
-                  <JournalList events={timelineEvents} onSelectEvent={setSelectedEventId} />
+                  <JournalList events={timelineEvents} onSelectEvent={openEventModal} />
                 </div>
-                <div>
-                  {selectedEvent ? (
-                    <EventDetail
-                      event={selectedEvent.event}
-                      medications={selectedEvent.medications}
-                      environment={selectedEvent.environment}
-                      personal={selectedEvent.personal}
-                    />
-                  ) : (
-                    <div className="glass-card p-6 text-[var(--text-secondary)]">
-                      Ereignis auswählen, um Details anzuzeigen.
-                    </div>
-                  )}
+                <div className="glass-card p-6 text-[var(--text-secondary)]">
+                  Tippe auf eine Karte oder auf einen Migränetag im Kalender, um die Detailansicht zu öffnen.
                 </div>
               </div>
             </section>
@@ -1012,6 +993,110 @@ export default function AnalysePage() {
           </>
         )}
       </div>
+
+      {isEventModalOpen && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setIsEventModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ereignisdetails"
+        >
+          <div
+            className="w-full max-w-3xl max-h-[85vh] overflow-auto glass-card p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Ereignisdetails</h3>
+              <button
+                type="button"
+                onClick={() => setIsEventModalOpen(false)}
+                className="ui-button"
+                aria-label="Schließen"
+              >
+                X
+              </button>
+            </div>
+
+            {selectedEvent ? (
+              <div className="space-y-5">
+                <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <h4 className="font-medium text-[var(--text-primary)] mb-3">Übersicht</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <p><span className="text-[var(--text-secondary)]">Datum:</span> {new Date(selectedEvent.event.started_at).toLocaleString('de-DE')}</p>
+                    <p><span className="text-[var(--text-secondary)]">Schweregrad:</span> {selectedEvent.event.severity}/10</p>
+                    <p>
+                      <span className="text-[var(--text-secondary)]">Dauer:</span>{' '}
+                      {selectedEvent.event.ended_at
+                        ? `${((new Date(selectedEvent.event.ended_at).getTime() - new Date(selectedEvent.event.started_at).getTime()) / (1000 * 60 * 60)).toFixed(1)}h`
+                        : '—'}
+                    </p>
+                  </div>
+                </section>
+
+                {(selectedEvent.event.symptoms.length > 0 || selectedEvent.event.prodromal_symptoms.length > 0) && (
+                  <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                    <h4 className="font-medium text-[var(--text-primary)] mb-3">Symptome</h4>
+                    {selectedEvent.event.prodromal_symptoms.length > 0 && (
+                      <p className="text-sm mb-2">
+                        <span className="text-[var(--text-secondary)]">Prodromal:</span>{' '}
+                        {selectedEvent.event.prodromal_symptoms.join(', ')}
+                      </p>
+                    )}
+                    {selectedEvent.event.symptoms.length > 0 && (
+                      <p className="text-sm">
+                        <span className="text-[var(--text-secondary)]">Während Attacke:</span>{' '}
+                        {selectedEvent.event.symptoms.join(', ')}
+                      </p>
+                    )}
+                  </section>
+                )}
+
+                {selectedEvent.event.notes && (
+                  <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                    <h4 className="font-medium text-[var(--text-primary)] mb-2">Notizen</h4>
+                    <p className="text-sm text-[var(--text-secondary)]">{selectedEvent.event.notes}</p>
+                  </section>
+                )}
+
+                {selectedEvent.medications.length > 0 && (
+                  <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                    <h4 className="font-medium text-[var(--text-primary)] mb-3">Medikamente</h4>
+                    <div className="space-y-2 text-sm">
+                      {selectedEvent.medications.map((medication) => (
+                        <div key={medication.id} className="rounded-lg border border-white/10 p-3">
+                          <p className="font-medium text-[var(--text-primary)]">{medication.name}</p>
+                          <p className="text-[var(--text-secondary)]">
+                            {new Date(medication.taken_at).toLocaleString('de-DE')}
+                            {medication.dose_mg ? ` · ${medication.dose_mg}mg` : ''}
+                            {medication.effectiveness ? ` · Wirksamkeit ${medication.effectiveness}/5` : ''}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {selectedEvent.environment && (
+                  <section className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                    <h4 className="font-medium text-[var(--text-primary)] mb-3">Wetterdaten zum Zeitpunkt</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm text-[var(--text-secondary)]">
+                      {selectedEvent.environment.temperature !== null && <p>Temp: {selectedEvent.environment.temperature.toFixed(1)}°C</p>}
+                      {selectedEvent.environment.pressure !== null && <p>Druck: {selectedEvent.environment.pressure.toFixed(0)} hPa</p>}
+                      {selectedEvent.environment.humidity !== null && <p>Feuchte: {selectedEvent.environment.humidity}%</p>}
+                      {selectedEvent.environment.wind_speed !== null && <p>Wind: {selectedEvent.environment.wind_speed.toFixed(1)} km/h</p>}
+                      {selectedEvent.environment.uv_index !== null && <p>UV: {selectedEvent.environment.uv_index.toFixed(1)}</p>}
+                      {selectedEvent.environment.air_quality_pm25 !== null && <p>PM2.5: {selectedEvent.environment.air_quality_pm25.toFixed(1)}</p>}
+                    </div>
+                  </section>
+                )}
+              </div>
+            ) : (
+              <p className="text-[var(--text-secondary)]">Lade Ereignisdetails...</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
