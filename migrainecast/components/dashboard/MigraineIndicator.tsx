@@ -2,7 +2,9 @@
 'use client';
 
 import React from 'react';
-import { HourlyForecast, KRIIFactor } from '@/types';
+import { EnvironmentSnapshot, HourlyForecast, KRIIFactor } from '@/types';
+import { calculateKRII } from '@/lib/krii';
+import { PERSONAL_DEFAULTS } from '@/lib/krii-config';
 
 interface MigraineIndicatorProps {
   kriiValue: number; // 0-1
@@ -50,22 +52,25 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   // Calculate peak today from hourly data
   const getPeakToday = () => {
     if (!hourlyData || hourlyData.length === 0) return null;
-    
+
     const today = new Date();
-    const todayDateStr = today.toISOString().split('T')[0];
-    
+    const isSameLocalDay = (date: Date) =>
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
+
     let maxKrii = 0;
     let peakTime = '';
-    
+
     for (const hour of hourlyData) {
-      const hourDateStr = hour.time.split('T')[0];
-      if (hourDateStr === todayDateStr && hour.krii_value > maxKrii) {
+      const date = new Date(hour.time);
+      if (isSameLocalDay(date) && hour.krii_value > maxKrii) {
         maxKrii = hour.krii_value;
         const date = new Date(hour.time);
         peakTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
       }
     }
-    
+
     return peakTime ? { percentage: Math.round(maxKrii * 100), time: peakTime } : null;
   };
 
@@ -138,6 +143,84 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       date.getMonth() === now.getMonth() &&
       date.getDate() === now.getDate();
 
+    const sortedHours = [...hourlyData].sort(
+      (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+    );
+
+    const computedByTimestamp = new Map<number, number>();
+
+    for (let i = 0; i < sortedHours.length; i++) {
+      const hour = sortedHours[i];
+      const hourDate = new Date(hour.time);
+
+      const prev6 = i >= 6 ? sortedHours[i - 6] : null;
+      const prev12 = i >= 12 ? sortedHours[i - 12] : null;
+      const prev24 = i >= 24 ? sortedHours[i - 24] : null;
+
+      const pressureNow = typeof hour.pressure === 'number' ? hour.pressure : null;
+      const pressure6 = prev6 && typeof prev6.pressure === 'number' ? prev6.pressure : null;
+      const pressure12 = prev12 && typeof prev12.pressure === 'number' ? prev12.pressure : null;
+      const pressure24 = prev24 && typeof prev24.pressure === 'number' ? prev24.pressure : null;
+
+      const pressureChange6h =
+        pressureNow !== null && pressure6 !== null ? pressureNow - pressure6 : null;
+      const pressureChange24h =
+        pressureNow !== null && pressure24 !== null ? pressureNow - pressure24 : null;
+
+      const tempNow = typeof hour.temperature === 'number' ? hour.temperature : null;
+      const temp6 = prev6 && typeof prev6.temperature === 'number' ? prev6.temperature : null;
+      const tempChange6h = tempNow !== null && temp6 !== null ? tempNow - temp6 : null;
+
+      const pressureTrend: 'falling' | 'stable' | 'rising' | null =
+        pressureChange6h === null
+          ? null
+          : pressureChange6h < -1
+            ? 'falling'
+            : pressureChange6h > 1
+              ? 'rising'
+              : 'stable';
+
+      const season: EnvironmentSnapshot['season'] =
+        hourDate.getMonth() >= 2 && hourDate.getMonth() <= 4
+          ? 'spring'
+          : hourDate.getMonth() >= 5 && hourDate.getMonth() <= 7
+            ? 'summer'
+            : hourDate.getMonth() >= 8 && hourDate.getMonth() <= 10
+              ? 'autumn'
+              : 'winter';
+
+      const env: EnvironmentSnapshot = {
+        id: '',
+        event_id: '',
+        recorded_at: hour.time,
+        lat: 0,
+        lon: 0,
+        pressure: pressureNow,
+        pressure_trend: pressureTrend,
+        pressure_change_6h: pressureChange6h,
+        pressure_change_24h: pressureChange24h,
+        pressure_6h_ago: pressure6,
+        pressure_12h_ago: pressure12,
+        pressure_24h_ago: pressure24,
+        pressure_48h_ago: null,
+        temperature: tempNow,
+        temperature_absolute: tempNow,
+        temp_change_6h: tempChange6h,
+        humidity: typeof hour.humidity === 'number' ? hour.humidity : null,
+        wind_speed: typeof hour.wind_speed === 'number' ? hour.wind_speed : null,
+        uv_index: hour.uv_index ?? null,
+        air_quality_pm25: hour.pm25,
+        air_quality_no2: hour.no2 ?? null,
+        air_quality_ozone: hour.ozone ?? null,
+        hour_of_day: hourDate.getHours(),
+        season,
+        created_at: new Date().toISOString(),
+      };
+
+      const krii = calculateKRII(env, null, PERSONAL_DEFAULTS.chronotype);
+      computedByTimestamp.set(hourDate.getTime(), krii.value * 100);
+    }
+
     const points = hourlyData
       .filter((hour) => {
         const date = new Date(hour.time);
@@ -145,9 +228,10 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       })
       .map((hour) => {
         const date = new Date(hour.time);
+        const computedValue = computedByTimestamp.get(date.getTime());
         return {
           ts: date.getTime(),
-          value: Math.max(0, Math.min(100, Math.round(hour.krii_value * 100))),
+          value: Math.max(0, Math.min(100, computedValue ?? hour.krii_value * 100)),
           hour: date.getHours(),
         };
       })
