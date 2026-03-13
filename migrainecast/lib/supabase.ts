@@ -8,6 +8,7 @@ import {
   PersonalFactors,
   UserSettings,
 } from '@/types';
+import { PERSONAL_DEFAULTS } from '@/lib/krii-config';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
@@ -224,8 +225,8 @@ export async function getUserSettings(): Promise<UserSettings> {
       location_lon: settings.location_lon || '13.405',
       location_name: settings.location_name || 'Berlin',
       email_notifications: settings.email_notifications || 'true',
-      sleep_hours_default: settings.sleep_hours_default || '7.5',
-      chronotype: (settings.chronotype || 'normal') as any,
+      sleep_hours_default: PERSONAL_DEFAULTS.sleep_hours_default,
+      chronotype: PERSONAL_DEFAULTS.chronotype,
     };
   } catch (error) {
     console.error('Error fetching user settings:', error);

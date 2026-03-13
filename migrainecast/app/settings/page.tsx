@@ -38,19 +38,6 @@ export default function SettingsPage() {
   const [locationSearching, setLocationSearching] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeApiResult[]>([]);
 
-  const handleNumericEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-
-    const focusable = Array.from(
-      document.querySelectorAll<HTMLElement>('input, select, textarea, button')
-    ).filter((element) => !element.hasAttribute('disabled'));
-
-    const currentIndex = focusable.indexOf(event.currentTarget);
-    const next = focusable[currentIndex + 1];
-    if (next) next.focus();
-  };
-
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -301,49 +288,6 @@ export default function SettingsPage() {
               <p className="text-xs text-[var(--text-secondary)]">
                 ({settings.location_lat}, {settings.location_lon})
               </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 mb-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Persoenliche Einstellungen</h2>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                Standard-Schlafstunden
-              </label>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.5"
-                value={settings.sleep_hours_default}
-                onKeyDown={handleNumericEnter}
-                onChange={(e) => {
-                  handleSettingChange('sleep_hours_default', e.target.value);
-                }}
-                className="ui-input"
-              />
-              <p className="text-xs text-[var(--text-secondary)] mt-1">
-                Defaultwert fuer die persoenlichen Faktoren im Journal.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-                Chronotyp
-              </label>
-              <select
-                value={settings.chronotype}
-                onChange={(e) => {
-                  handleSettingChange('chronotype', e.target.value);
-                }}
-                className="ui-select"
-              >
-                <option value="early">Fruehaufsteher</option>
-                <option value="normal">Normal</option>
-                <option value="late">Nachtmensch</option>
-              </select>
             </div>
           </div>
         </div>

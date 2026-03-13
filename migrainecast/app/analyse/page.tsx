@@ -730,19 +730,23 @@ export default function AnalysePage() {
           </section>
         )}
 
-        <section className="glass-card p-3 md:p-4">
-          <div className="flex gap-2">
+        <section className="flex justify-center">
+          <div className="inline-flex items-center rounded-full p-1 bg-[rgba(255,255,255,0.06)]">
             <button
               type="button"
               onClick={() => setActiveTab('history')}
-              className={`ui-button ${activeTab === 'history' ? 'border-[var(--accent-low)] text-white' : ''}`}
+              className={`px-5 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
+                activeTab === 'history' ? 'text-white bg-[rgba(255,255,255,0.15)]' : 'text-[var(--text-secondary)]'
+              }`}
             >
               Verlauf
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('analysis')}
-              className={`ui-button ${activeTab === 'analysis' ? 'border-[var(--accent-medium)] text-white' : ''}`}
+              className={`px-5 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
+                activeTab === 'analysis' ? 'text-white bg-[rgba(255,255,255,0.15)]' : 'text-[var(--text-secondary)]'
+              }`}
             >
               Analyse
             </button>
@@ -960,14 +964,7 @@ export default function AnalysePage() {
 
             <section className="glass-card p-6">
               <h2 className="text-xl font-medium mb-4">Ereignisse</h2>
-              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-6">
-                <div>
-                  <JournalList events={timelineEvents} onSelectEvent={openEventModal} />
-                </div>
-                <div className="glass-card p-6 text-[var(--text-secondary)]">
-                  Tippe auf eine Karte oder auf einen Migränetag im Kalender, um die Detailansicht zu öffnen.
-                </div>
-              </div>
+              <JournalList events={timelineEvents} onSelectEvent={openEventModal} />
             </section>
           </>
         ) : (

@@ -74,7 +74,15 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
       </div>
 
       <div className="w-full h-[120px] md:h-[160px]">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" role="img" aria-label="KRII-Verlauf der naechsten 72 Stunden">
+        <svg
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="none"
+          className="w-full h-full block"
+          role="img"
+          aria-label="KRII-Verlauf der naechsten 72 Stunden"
+        >
           {[0, 30, 60, 100].map((value) => (
             <g key={value}>
               <line

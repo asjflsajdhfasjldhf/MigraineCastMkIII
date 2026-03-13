@@ -1,6 +1,11 @@
 // KRII (Kopfschmerzrisiko-Index) Configuration
 // Central configuration for all KRII calculations
 
+export const PERSONAL_DEFAULTS = {
+  chronotype: 'normal' as const,
+  sleep_hours_default: '7.5' as const,
+};
+
 export const KRII_CONFIG = {
   weights: {
     weather: {
