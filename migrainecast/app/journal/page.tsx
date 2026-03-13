@@ -1,4 +1,3 @@
-// Journal Page
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,13 +7,11 @@ import {
   RetrospectiveJournalForm,
 } from '@/components/journal/RetrospectiveJournalForm';
 import {
-  createMigraineEvent,
   addEnvironmentSnapshot,
+  createMigraineEvent,
   getUserSettings,
 } from '@/lib/supabase';
-import {
-  EnvironmentSnapshot,
-} from '@/types';
+import { EnvironmentSnapshot } from '@/types';
 import { getHistoricalPointWeather, getHistoricalWeather } from '@/lib/weather';
 import { getHistoricalAirQuality } from '@/lib/air-quality';
 
@@ -23,7 +20,6 @@ export default function JournalPage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [userLocationLat, setUserLocationLat] = useState(52.52);
   const [userLocationLon, setUserLocationLon] = useState(13.405);
@@ -36,112 +32,120 @@ export default function JournalPage() {
           location_lat: '52.52',
           location_lon: '13.405',
         }));
+
         setUserLocation(settings.location_name || null);
         setUserLocationLat(parseFloat(settings.location_lat || '52.52'));
         setUserLocationLon(parseFloat(settings.location_lon || '13.405'));
         setErrorMessage(null);
-      loadPageData();
-        const event = await getMigraineEvent(selectedEventId);
-        setSelectedEvent(event);
       } catch (error) {
-        console.error('Error loading event:', error);
+        console.error('Error loading journal settings:', error);
+        setErrorMessage('Journal konnte nicht initialisiert werden.');
+      } finally {
+        setLoading(false);
       }
-        const newEvent = await createMigraineEvent(data as any);
+    };
 
-        if (data.stage === 'onset') {
-          try {
-            const settings = await getUserSettings();
-            const lat = parseFloat(settings.location_lat);
-            const lon = parseFloat(settings.location_lon);
+    loadPageData();
+  }, []);
 
-            const historical = await getHistoricalWeather(lat, lon, new Date(data.started_at));
-            const aqData = await getHistoricalAirQuality(lat, lon, new Date(data.started_at));
+  const handleSaveForm = async (data: any) => {
+    try {
+      setIsSaving(true);
 
-            const env: EnvironmentSnapshot = {
-              id: '',
-              event_id: newEvent.id,
-              recorded_at: data.started_at,
-              lat,
-              lon,
-              pressure: null,
-              pressure_trend: null,
-              pressure_change_6h: null,
-              pressure_change_24h: null,
-              pressure_6h_ago: historical.pressure_6h_ago,
-              pressure_12h_ago: historical.pressure_12h_ago,
-              pressure_24h_ago: historical.pressure_24h_ago,
-              pressure_48h_ago: historical.pressure_48h_ago,
-              temperature: null,
-              temperature_absolute: null,
-              temp_change_6h: null,
-              humidity: null,
-              wind_speed: null,
-              uv_index: null,
-              air_quality_pm25: aqData.pm25,
-              air_quality_no2: aqData.no2,
-              air_quality_ozone: aqData.ozone,
-              hour_of_day: new Date(data.started_at).getHours(),
-              season: getSeason(new Date(data.started_at)),
-              created_at: new Date().toISOString(),
-            };
+      const newEvent = await createMigraineEvent(data as any);
 
-            await addEnvironmentSnapshot(env);
-          } catch (error) {
-            console.error('Error fetching environmental data:', error);
-          }
+      if (data.stage === 'onset') {
+        try {
+          const settings = await getUserSettings();
+          const lat = parseFloat(settings.location_lat);
+          const lon = parseFloat(settings.location_lon);
+          const historical = await getHistoricalWeather(lat, lon, new Date(data.started_at));
+          const aqData = await getHistoricalAirQuality(lat, lon, new Date(data.started_at));
+
+          const env: EnvironmentSnapshot = {
+            id: '',
+            event_id: newEvent.id,
+            recorded_at: data.started_at,
+            lat,
+            lon,
+            pressure: null,
+            pressure_trend: null,
+            pressure_change_6h: null,
+            pressure_change_24h: null,
+            pressure_6h_ago: historical.pressure_6h_ago,
+            pressure_12h_ago: historical.pressure_12h_ago,
+            pressure_24h_ago: historical.pressure_24h_ago,
+            pressure_48h_ago: historical.pressure_48h_ago,
+            temperature: null,
+            temperature_absolute: null,
+            temp_change_6h: null,
+            humidity: null,
+            wind_speed: null,
+            uv_index: null,
+            air_quality_pm25: aqData.pm25,
+            air_quality_no2: aqData.no2,
+            air_quality_ozone: aqData.ozone,
+            hour_of_day: new Date(data.started_at).getHours(),
+            season: getSeason(new Date(data.started_at)),
+            created_at: new Date().toISOString(),
+          };
+
+          await addEnvironmentSnapshot(env);
+        } catch (error) {
+          console.error('Error fetching environmental data:', error);
         }
+      }
 
-        if (data.stage === 'active' && data.medications && data.medications.length > 0) {
-          try {
-            for (const med of data.medications) {
-              if (med.name && med.taken_at) {
-                await fetch('/api/medication', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    event_id: newEvent.id,
-                    name: med.name,
-                    taken_at: convertTimeToISO(data.ended_at, med.taken_at),
-                    dose_mg: med.dose_mg,
-                    effectiveness: med.effectiveness,
-                  }),
-                });
-              }
+      if (data.stage === 'active' && data.medications && data.medications.length > 0) {
+        try {
+          for (const med of data.medications) {
+            if (med.name && med.taken_at) {
+              await fetch('/api/medication', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  event_id: newEvent.id,
+                  name: med.name,
+                  taken_at: convertTimeToISO(data.ended_at, med.taken_at),
+                  dose_mg: med.dose_mg,
+                  effectiveness: med.effectiveness,
+                }),
+              });
             }
-          } catch (error) {
-            console.error('Error saving medications:', error);
           }
+        } catch (error) {
+          console.error('Error saving medications:', error);
         }
+      }
 
-        if (data.stage === 'complete') {
-          try {
-            await fetch('/api/personal-factors', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                event_id: newEvent.id,
-                sleep_hours: data.sleep_hours,
-                sleep_bedtime: data.sleep_bedtime,
-                sleep_waketime: data.sleep_waketime,
-                stress_level: data.stress_level,
-                alcohol_yesterday: data.alcohol_yesterday,
-                caffeine_withdrawal: data.caffeine_withdrawal,
-                meals_regular: data.meals_regular,
-                hydration: data.hydration,
-                sensory_overload: data.sensory_overload,
-                masking_intensity: data.masking_intensity,
-                social_exhaustion: data.social_exhaustion,
-                overstimulation: data.overstimulation,
-              }),
-            });
-          } catch (error) {
-            console.error('Error saving personal factors:', error);
-          }
+      if (data.stage === 'complete') {
+        try {
+          await fetch('/api/personal-factors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_id: newEvent.id,
+              sleep_hours: data.sleep_hours,
+              sleep_bedtime: data.sleep_bedtime,
+              sleep_waketime: data.sleep_waketime,
+              stress_level: data.stress_level,
+              alcohol_yesterday: data.alcohol_yesterday,
+              caffeine_withdrawal: data.caffeine_withdrawal,
+              meals_regular: data.meals_regular,
+              hydration: data.hydration,
+              sensory_overload: data.sensory_overload,
+              masking_intensity: data.masking_intensity,
+              social_exhaustion: data.social_exhaustion,
+              overstimulation: data.overstimulation,
+            }),
+          });
+        } catch (error) {
+          console.error('Error saving personal factors:', error);
         }
-
-      setIsSaving(false);
+      }
     } catch (error) {
       console.error('Error saving event:', error);
+    } finally {
       setIsSaving(false);
     }
   };
@@ -297,7 +301,6 @@ export default function JournalPage() {
 
   return (
     <div className="app-shell">
-      {/* Main Content */}
       <div className="app-main max-w-6xl mx-auto dashboard-container py-8">
         {errorMessage && (
           <div className="glass-card p-4 mb-6 border border-[var(--accent-high)]">
@@ -313,10 +316,7 @@ export default function JournalPage() {
             Jetzt aufzeichnen
           </button>
           <button
-            onClick={() => {
-              setSelectedEventId(null);
-              setEntryMode('past');
-            }}
+            onClick={() => setEntryMode('past')}
             className={`ui-button ${entryMode === 'past' ? 'border-[var(--accent-medium)]' : ''}`}
           >
             Vergangene Attacke eintragen
@@ -326,11 +326,7 @@ export default function JournalPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-3">
             {entryMode === 'now' ? (
-              <JournalForm
-                event={null}
-                onSave={handleSaveForm}
-                isLoading={isSaving}
-              />
+              <JournalForm event={null} onSave={handleSaveForm} isLoading={isSaving} />
             ) : (
               <RetrospectiveJournalForm
                 onSave={handleSaveRetrospective}
@@ -358,8 +354,6 @@ function getSeason(date: Date): 'spring' | 'summer' | 'autumn' | 'winter' {
 }
 
 function convertTimeToISO(dateString: string, timeString: string): string {
-  // dateString format: "2026-03-06T14:30" or ISO string
-  // timeString format: "14:30"
   const date = new Date(dateString);
   const [hours, minutes] = timeString.split(':').map(Number);
   date.setHours(hours, minutes, 0, 0);
