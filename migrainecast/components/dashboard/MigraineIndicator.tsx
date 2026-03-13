@@ -23,6 +23,12 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
 }) => {
   const percentage = Math.round(kriiValue * 100);
 
+  const getKriiStrokeColor = (valuePct: number) => {
+    if (valuePct < 40) return 'rgba(255,255,255,0.7)';
+    if (valuePct <= 60) return 'rgba(251,146,60,0.9)';
+    return 'rgba(248,113,113,0.9)';
+  };
+
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'low':
@@ -253,9 +259,22 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
     const toX = (ts: number) => ((ts - dayStartTs) / totalMs) * width;
     const toY = (value: number) => height - (value / 100) * height;
 
-    const path = points
-      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${toX(point.ts).toFixed(2)} ${toY(point.value).toFixed(2)}`)
-      .join(' ');
+    const pointsWithCoords = points.map((point) => ({
+      ...point,
+      x: toX(point.ts),
+      y: toY(point.value),
+    }));
+
+    const segments = pointsWithCoords.slice(0, -1).map((point, index) => {
+      const next = pointsWithCoords[index + 1];
+      return {
+        x1: point.x,
+        y1: point.y,
+        x2: next.x,
+        y2: next.y,
+        color: getKriiStrokeColor((point.value + next.value) / 2),
+      };
+    });
 
     let currentPoint = points[0];
     for (const point of points) {
@@ -271,7 +290,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
     return {
       width,
       height,
-      path,
+      segments,
       currentX: toX(currentPoint.ts),
       currentY: toY(currentPoint.value),
       peakValue: peakPoint.value,
@@ -314,17 +333,21 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       </div>
 
       {todaySparkline && (
-        <div className="mb-4">
+        <div className="mb-4 -mx-6">
           <div className="h-12 w-full relative">
             <svg viewBox={`0 0 ${todaySparkline.width} ${todaySparkline.height}`} className="w-full h-full" aria-label="KRII Tagesverlauf">
-              <path
-                d={todaySparkline.path}
-                fill="none"
-                stroke="rgba(255,255,255,0.6)"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              {todaySparkline.segments.map((segment, index) => (
+                <line
+                  key={`${segment.x1}-${segment.y1}-${index}`}
+                  x1={segment.x1}
+                  y1={segment.y1}
+                  x2={segment.x2}
+                  y2={segment.y2}
+                  stroke={segment.color}
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              ))}
               <circle
                 cx={todaySparkline.currentX}
                 cy={todaySparkline.currentY}

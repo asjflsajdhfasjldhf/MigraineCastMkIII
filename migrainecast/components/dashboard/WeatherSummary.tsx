@@ -35,7 +35,7 @@ export const WeatherSummary: React.FC<WeatherSummaryProps> = ({
         Aktuelle Wetterdaten
       </h2>
 
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {items.map((item) => (
           <div
             key={item.key}

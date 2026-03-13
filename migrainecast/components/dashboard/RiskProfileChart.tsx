@@ -10,6 +10,12 @@ interface RiskProfileChartProps {
 export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
   const points = data.slice(0, 72);
 
+  const getKriiStrokeColor = (valuePct: number) => {
+    if (valuePct < 40) return 'rgba(255,255,255,0.7)';
+    if (valuePct <= 60) return 'rgba(251,146,60,0.9)';
+    return 'rgba(248,113,113,0.9)';
+  };
+
   if (points.length === 0) {
     return (
       <div className="w-full glass-card p-6">
@@ -39,13 +45,23 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
     return marginTop + (1 - clamped / 100) * plotHeight;
   };
 
-  const path = points
-    .map((hour, idx) => {
-      const x = toX(idx);
-      const y = toY((hour.krii_value || 0) * 100);
-      return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(' ');
+  const pointCoords = points.map((hour, idx) => ({
+    idx,
+    x: toX(idx),
+    y: toY((hour.krii_value || 0) * 100),
+    valuePct: (hour.krii_value || 0) * 100,
+  }));
+
+  const segments = pointCoords.slice(0, -1).map((point, idx) => {
+    const next = pointCoords[idx + 1];
+    return {
+      x1: point.x,
+      y1: point.y,
+      x2: next.x,
+      y2: next.y,
+      color: getKriiStrokeColor((point.valuePct + next.valuePct) / 2),
+    };
+  });
 
   const firstTs = Date.parse(points[0].time);
   const lastTs = Date.parse(points[points.length - 1].time);
@@ -144,14 +160,18 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
             />
           )}
 
-          <path
-            d={path}
-            fill="none"
-            stroke="rgba(240,240,240,0.95)"
-            strokeWidth="2"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
+          {segments.map((segment, index) => (
+            <line
+              key={`${segment.x1}-${segment.y1}-${index}`}
+              x1={segment.x1}
+              y1={segment.y1}
+              x2={segment.x2}
+              y2={segment.y2}
+              stroke={segment.color}
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          ))}
         </svg>
       </div>
     </div>

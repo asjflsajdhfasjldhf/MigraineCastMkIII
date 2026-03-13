@@ -75,6 +75,18 @@ const toLocalDateKey = (value: string | Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const startOfLocalDay = (date: Date): Date => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const severityLabel = (value: number): string => {
+  if (value >= 7) return 'stark';
+  if (value >= 4) return 'mittel';
+  return 'leicht';
+};
+
 const getCalendarSeverityBackground = (severity: number | null): string => {
   if (severity === null) return 'rgba(255, 255, 255, 0.02)';
   if (severity <= 4) return 'rgba(248, 113, 113, 0.20)';
@@ -277,8 +289,12 @@ export default function AnalysePage() {
     if (timelineEvents.length === 0) {
       return {
         lastAttackDateLabel: null as string | null,
+        daysSinceLastAttack: null as number | null,
+        attackFreeDays: null as number | null,
         thisMonthCount: 0,
+        previousMonthCount: 0,
         averageSeverity: 0,
+        averageDurationHours: null as number | null,
       };
     }
 
@@ -295,18 +311,50 @@ export default function AnalysePage() {
       year: 'numeric',
     });
 
+    const todayStart = startOfLocalDay(now).getTime();
+    const latestStart = startOfLocalDay(newestDate).getTime();
+    const daysSinceLastAttack = Math.max(0, Math.round((todayStart - latestStart) / (24 * 60 * 60 * 1000)));
+    const attackFreeDays = daysSinceLastAttack;
+
+    const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
     const thisMonthCount = timelineEvents.filter((event) => {
       const d = new Date(event.started_at);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
 
+    const previousMonthCount = timelineEvents.filter((event) => {
+      const d = new Date(event.started_at);
+      return (
+        d.getMonth() === previousMonthDate.getMonth() &&
+        d.getFullYear() === previousMonthDate.getFullYear()
+      );
+    }).length;
+
     const averageSeverity =
       timelineEvents.reduce((sum, event) => sum + event.severity, 0) / timelineEvents.length;
 
+    const durations = timelineEvents
+      .map((event) => {
+        if (!event.ended_at) return null;
+        const started = new Date(event.started_at).getTime();
+        const ended = new Date(event.ended_at).getTime();
+        if (!Number.isFinite(started) || !Number.isFinite(ended) || ended <= started) return null;
+        return (ended - started) / (1000 * 60 * 60);
+      })
+      .filter((duration): duration is number => duration !== null);
+
+    const averageDurationHours =
+      durations.length > 0 ? durations.reduce((sum, value) => sum + value, 0) / durations.length : null;
+
     return {
       lastAttackDateLabel,
+      daysSinceLastAttack,
+      attackFreeDays,
       thisMonthCount,
+      previousMonthCount,
       averageSeverity,
+      averageDurationHours,
     };
   }, [timelineEvents]);
 
@@ -343,6 +391,7 @@ export default function AnalysePage() {
     return Array.from(counter.entries())
       .map(([name, count]) => ({
         name,
+        count,
         pct: (count / timelineEvents.length) * 100,
       }))
       .sort((a, b) => b.pct - a.pct)
@@ -352,6 +401,25 @@ export default function AnalysePage() {
   const dominantTrigger = useMemo(() => {
     return triggerStats.length > 0 ? triggerStats[0].name : '—';
   }, [triggerStats]);
+
+  const dominantTriggerCount = useMemo(() => {
+    return triggerStats.length > 0 ? triggerStats[0].count : 0;
+  }, [triggerStats]);
+
+  const monthComparisonText = useMemo(() => {
+    const thisMonth = historyStats.thisMonthCount;
+    const previous = historyStats.previousMonthCount;
+    const previousDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+    const prevLabel = previousDate.toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
+
+    if (thisMonth < previous) {
+      return `↓ weniger als ${prevLabel} (${previous})`;
+    }
+    if (thisMonth > previous) {
+      return `↑ mehr als ${prevLabel} (${previous})`;
+    }
+    return `→ gleich wie ${prevLabel} (${previous})`;
+  }, [historyStats.previousMonthCount, historyStats.thisMonthCount]);
 
   const symptomStats = useMemo(() => {
     const counter = new Map<string, number>();
@@ -730,49 +798,80 @@ export default function AnalysePage() {
           </section>
         )}
 
-        <section className="flex justify-center">
-          <div className="inline-flex items-center rounded-full p-1 bg-[rgba(255,255,255,0.06)]">
-            <button
-              type="button"
-              onClick={() => setActiveTab('history')}
-              className={`px-5 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
-                activeTab === 'history' ? 'text-white bg-[rgba(255,255,255,0.15)]' : 'text-[var(--text-secondary)]'
-              }`}
-            >
-              Verlauf
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('analysis')}
-              className={`px-5 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
-                activeTab === 'analysis' ? 'text-white bg-[rgba(255,255,255,0.15)]' : 'text-[var(--text-secondary)]'
-              }`}
-            >
-              Analyse
-            </button>
-          </div>
-        </section>
-
         {activeTab === 'history' ? (
           <>
             <section className="glass-card p-6">
-              <h2 className="text-xl font-medium mb-4">Schnellstatistiken</h2>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <div className="glass-card p-4">
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <h2 className="text-xl font-medium">Schnellstatistiken</h2>
+                <div className="inline-flex items-center rounded-full p-1 bg-[rgba(255,255,255,0.06)]">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('history')}
+                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
+                      activeTab === 'history'
+                        ? 'text-white bg-[rgba(255,255,255,0.15)]'
+                        : 'text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    Verlauf
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('analysis')}
+                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
+                      activeTab === 'analysis'
+                        ? 'text-white bg-[rgba(255,255,255,0.15)]'
+                        : 'text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    Analyse
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="glass-card p-3.5">
                   <p className="text-xs text-[var(--text-secondary)] mb-1">Letzte Attacke</p>
-                  <p className="text-xl md:text-2xl font-medium">{historyStats.lastAttackDateLabel || '—'}</p>
+                  <p className="text-base md:text-lg font-medium leading-snug">{historyStats.lastAttackDateLabel || 'Keine Daten'}</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+                    {historyStats.daysSinceLastAttack !== null
+                      ? `vor ${historyStats.daysSinceLastAttack} ${historyStats.daysSinceLastAttack === 1 ? 'Tag' : 'Tagen'}`
+                      : '—'}
+                  </p>
                 </div>
-                <div className="glass-card p-4">
-                  <p className="text-xs text-[var(--text-secondary)] mb-1">Dieser Monat</p>
-                  <p className="text-xl md:text-2xl font-medium">{attackCountLabel(historyStats.thisMonthCount)}</p>
+                <div className="glass-card p-3.5">
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Attackenfreie Tage</p>
+                  <p className="text-xl md:text-2xl font-medium">
+                    {historyStats.attackFreeDays !== null ? `${historyStats.attackFreeDays} Tage` : '—'}
+                  </p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-1">aktuell laufend</p>
                 </div>
-                <div className="glass-card p-4">
+                <div className="glass-card p-3.5">
                   <p className="text-xs text-[var(--text-secondary)] mb-1">Ø Schweregrad</p>
                   <p className="text-xl md:text-2xl font-medium">{historyStats.averageSeverity.toFixed(1)} / 10</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+                    {severityLabel(historyStats.averageSeverity)}
+                  </p>
                 </div>
-                <div className="glass-card p-4">
+                <div className="glass-card p-3.5">
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Dieser Monat vs. letzter</p>
+                  <p className="text-xl md:text-2xl font-medium">{attackCountLabel(historyStats.thisMonthCount)}</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-1">{monthComparisonText}</p>
+                </div>
+                <div className="glass-card p-3.5">
                   <p className="text-xs text-[var(--text-secondary)] mb-1">Häufigster Trigger</p>
                   <p className="text-sm md:text-base font-medium leading-snug">{dominantTrigger}</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-1">
+                    in {dominantTriggerCount} von {timelineEvents.length} Attacken
+                  </p>
+                </div>
+                <div className="glass-card p-3.5">
+                  <p className="text-xs text-[var(--text-secondary)] mb-1">Ø Dauer</p>
+                  <p className="text-xl md:text-2xl font-medium">
+                    {historyStats.averageDurationHours !== null
+                      ? `${historyStats.averageDurationHours.toFixed(1)}h`
+                      : '—'}
+                  </p>
+                  <p className="text-[11px] text-[var(--text-secondary)] mt-1">pro Attacke</p>
                 </div>
               </div>
             </section>
@@ -932,32 +1031,38 @@ export default function AnalysePage() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="glass-card p-4">
-                      <p className="text-xs text-[var(--text-secondary)] mb-1">Neurodivergenz-Durchschnitt</p>
-                      <p className="text-2xl font-medium">{neurodivAvg !== null ? `${neurodivAvg.toFixed(2)} / 5` : '—'}</p>
-                    </div>
+                  {(neurodivAvg !== null || symptomStats.length > 0 || medicationStats.length > 0) && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {neurodivAvg !== null && (
+                        <div className="glass-card p-4">
+                          <p className="text-xs text-[var(--text-secondary)] mb-1">Neurodivergenz-Durchschnitt</p>
+                          <p className="text-2xl font-medium">{`${neurodivAvg.toFixed(2)} / 5`}</p>
+                        </div>
+                      )}
 
-                    <div className="glass-card p-4">
-                      <p className="text-xs text-[var(--text-secondary)] mb-1">Häufigste Symptome</p>
-                      <ul className="text-sm space-y-1">
-                        {symptomStats.slice(0, 3).map((entry) => (
-                          <li key={entry.name}>{entry.name}: {entry.count}</li>
-                        ))}
-                        {symptomStats.length === 0 && <li>—</li>}
-                      </ul>
-                    </div>
+                      {symptomStats.length > 0 && (
+                        <div className="glass-card p-4">
+                          <p className="text-xs text-[var(--text-secondary)] mb-1">Häufigste Symptome</p>
+                          <ul className="text-sm space-y-1">
+                            {symptomStats.slice(0, 3).map((entry) => (
+                              <li key={entry.name}>{entry.name}: {entry.count}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
-                    <div className="glass-card p-4">
-                      <p className="text-xs text-[var(--text-secondary)] mb-1">Wirksamste Medikamente</p>
-                      <ul className="text-sm space-y-1">
-                        {medicationStats.slice(0, 3).map((entry) => (
-                          <li key={entry.name}>{entry.name}: {entry.avg.toFixed(2)} / 5</li>
-                        ))}
-                        {medicationStats.length === 0 && <li>—</li>}
-                      </ul>
+                      {medicationStats.length > 0 && (
+                        <div className="glass-card p-4">
+                          <p className="text-xs text-[var(--text-secondary)] mb-1">Wirksamste Medikamente</p>
+                          <ul className="text-sm space-y-1">
+                            {medicationStats.slice(0, 3).map((entry) => (
+                              <li key={entry.name}>{entry.name}: {entry.avg.toFixed(2)} / 5</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </section>
@@ -969,7 +1074,7 @@ export default function AnalysePage() {
           </>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="glass-card p-6">
                 <p className="text-[var(--text-secondary)] text-sm mb-2">Gesamtereignisse</p>
                 <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">{analysisStats.totalEvents}</p>
@@ -980,6 +1085,33 @@ export default function AnalysePage() {
                 <p className="text-4xl font-bold text-[var(--text-primary)] mono-value">
                   {analysisStats.averageSeverity ? `${analysisStats.averageSeverity.toFixed(1)}/10` : '—'}
                 </p>
+              </div>
+
+              <div className="glass-card p-6 flex items-center justify-center">
+                <div className="inline-flex items-center rounded-full p-1 bg-[rgba(255,255,255,0.06)]">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('history')}
+                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
+                      activeTab === 'history'
+                        ? 'text-white bg-[rgba(255,255,255,0.15)]'
+                        : 'text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    Verlauf
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('analysis')}
+                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ease-in-out ${
+                      activeTab === 'analysis'
+                        ? 'text-white bg-[rgba(255,255,255,0.15)]'
+                        : 'text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    Analyse
+                  </button>
+                </div>
               </div>
             </div>
 
