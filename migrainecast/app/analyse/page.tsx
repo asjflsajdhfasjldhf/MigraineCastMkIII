@@ -310,10 +310,6 @@ export default function AnalysePage() {
     };
   }, [timelineEvents]);
 
-  const dominantTrigger = useMemo(() => {
-    return triggerStats.length > 0 ? triggerStats[0].name : '—';
-  }, [triggerStats]);
-
   const attackCountLabel = (count: number) => `${count} ${count === 1 ? 'Attacke' : 'Attacken'}`;
 
   const openEventModal = (eventId: string) => {
@@ -352,6 +348,10 @@ export default function AnalysePage() {
       .sort((a, b) => b.pct - a.pct)
       .slice(0, 5);
   }, [timelineEvents, envRows]);
+
+  const dominantTrigger = useMemo(() => {
+    return triggerStats.length > 0 ? triggerStats[0].name : '—';
+  }, [triggerStats]);
 
   const symptomStats = useMemo(() => {
     const counter = new Map<string, number>();
