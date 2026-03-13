@@ -138,14 +138,6 @@ export default function JournalPage() {
             console.error('Error saving personal factors:', error);
           }
         }
-                overstimulation: data.overstimulation,
-              }),
-            });
-          } catch (error) {
-            console.error('Error saving personal factors:', error);
-          }
-        }
-      }
 
       setIsSaving(false);
     } catch (error) {
