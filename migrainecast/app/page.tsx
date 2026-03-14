@@ -12,13 +12,11 @@ import {
   EnvironmentSnapshot,
   HourlyForecast,
   DailyForecast as DailyForecastType,
-  MigraineEvent,
   WeatherData,
 } from '@/types';
 import { calculateKRII as calculateKRIIValue } from '@/lib/krii';
 import { toKriiPercent } from '@/lib/krii-display';
 import {
-  getMigraineEventsByDateRange,
   getUserSettings,
   hasStoredLocationSettings,
   updateUserSetting,
@@ -31,7 +29,6 @@ export default function DashboardPage() {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [hourlyData, setHourlyData] = useState<HourlyForecast[]>([]);
   const [dailyData, setDailyData] = useState<DailyForecastType[]>([]);
-  const [migraineEvents, setMigraineEvents] = useState<MigraineEvent[]>([]);
   const [showAlert, setShowAlert] = useState(false);
   const [kriiFactors, setKriiFactors] = useState<any[]>([]);
   const [yesterdayPeak, setYesterdayPeak] = useState<number | null>(null);
@@ -81,13 +78,7 @@ export default function DashboardPage() {
       };
 
       try {
-        const rangeEnd = new Date();
-        rangeEnd.setHours(23, 59, 59, 999);
-        const rangeStart = new Date(rangeEnd);
-        rangeStart.setDate(rangeStart.getDate() - 29);
-        rangeStart.setHours(0, 0, 0, 0);
-
-        const [settings, hasStoredLocation, recentEvents] = await Promise.all([
+        const [settings, hasStoredLocation] = await Promise.all([
           getUserSettings().catch(() => ({
             location_lat: '52.52',
             location_lon: '13.405',
@@ -100,13 +91,7 @@ export default function DashboardPage() {
             console.error('Error checking stored location in dashboard:', error);
             return false;
           }),
-          getMigraineEventsByDateRange(rangeStart, rangeEnd).catch((error) => {
-            console.error('Error loading 30-day migraine events in dashboard:', error);
-            return [];
-          }),
         ]);
-
-        setMigraineEvents(recentEvents);
 
         const chronotype = settings.chronotype || 'normal';
         let lat = parseFloat(settings.location_lat || `${berlinFallback.lat}`);
@@ -450,7 +435,7 @@ export default function DashboardPage() {
 
         {/* 30-Day Overview */}
         <div className="mb-6">
-          <RiskProfileChart data={hourlyData} events={migraineEvents} />
+          <RiskProfileChart data={hourlyData} />
         </div>
 
         {/* Hourly Table */}

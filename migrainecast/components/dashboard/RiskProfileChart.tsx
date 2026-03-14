@@ -1,15 +1,14 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { HourlyForecast, MigraineEvent } from '@/types';
+import { HourlyForecast } from '@/types';
 import { roundPercentValue } from '@/lib/krii-display';
 
 interface RiskProfileChartProps {
   data: HourlyForecast[];
-  events: MigraineEvent[];
 }
 
-export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data, events }) => {
+export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data }) => {
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
   const toLocalDateKey = (date: Date) => {
@@ -23,9 +22,9 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data, events
   today.setHours(0, 0, 0, 0);
 
   const days = useMemo(() => {
-    const forecastAverages = new Map<string, number>();
+    const forecastPeaks = new Map<string, number>();
     const forecastBuckets = new Map<string, number[]>();
-    data.slice(0, 72).forEach((hour) => {
+    data.forEach((hour) => {
       const date = new Date(hour.time);
       const key = toLocalDateKey(date);
       const bucket = forecastBuckets.get(key) ?? [];
@@ -34,73 +33,45 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data, events
     });
 
     forecastBuckets.forEach((values, key) => {
-      const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
-      forecastAverages.set(key, avg);
+      const peak = values.reduce((max, value) => Math.max(max, value), 0);
+      forecastPeaks.set(key, peak);
     });
 
-    const eventBuckets = new Map<string, MigraineEvent[]>();
-    events.forEach((event) => {
-      const key = toLocalDateKey(new Date(event.started_at));
-      const bucket = eventBuckets.get(key) ?? [];
-      bucket.push(event);
-      eventBuckets.set(key, bucket);
-    });
-
-    return Array.from({ length: 30 }, (_, index) => {
+    return Array.from({ length: 14 }, (_, index) => {
       const date = new Date(today);
-      date.setDate(today.getDate() - 29 + index);
+      date.setDate(today.getDate() + index);
       const key = toLocalDateKey(date);
-      const isToday = key === toLocalDateKey(today);
-      const dayEvents = eventBuckets.get(key) ?? [];
-      const severityAverage =
-        dayEvents.length > 0
-          ? dayEvents.reduce((sum, event) => sum + event.severity, 0) / dayEvents.length
-          : null;
-      const forecastAverage = forecastAverages.get(key);
-      const value = forecastAverage ?? (severityAverage !== null ? severityAverage * 10 : 0);
+      const value = forecastPeaks.get(key) ?? 0;
+      const isToday = index === 0;
+      const weekday = date.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '');
+      const shortDate = `${date.getDate()}.${date.getMonth() + 1}`;
 
       return {
         key,
         date,
         value: Math.max(0, Math.min(100, value)),
-        hasMigraine: dayEvents.length > 0,
-        hasForecast: forecastAverage !== undefined,
-        severityAverage,
-        displayLabel: isToday ? 'Heute' : null,
+        isToday,
+        label: isToday ? 'Heute' : `${weekday} ${shortDate}`,
       };
     });
-  }, [data, events]);
+  }, [data]);
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? null;
 
-  const formatShortLabel = (date: Date) => `${date.getDate()}.${date.getMonth() + 1}`;
-
-  const getForecastColor = (value: number) => {
-    if (value < 40) return 'rgba(255,255,255,0.4)';
+  const getBarColor = (value: number) => {
+    if (value < 40) return 'rgba(255,255,255,0.5)';
     if (value <= 60) return 'rgba(251,146,60,0.8)';
     return 'rgba(248,113,113,0.8)';
   };
 
-  const getBarColor = (day: (typeof days)[number]) => {
-    if (day.hasMigraine) return '#f87171';
-    if (day.hasForecast) return getForecastColor(day.value);
-    return 'rgba(255,255,255,0.08)';
-  };
-
   const getTooltipValue = (day: (typeof days)[number]) => {
-    if (day.hasForecast) {
-      return `KRII ${roundPercentValue(day.value)}%`;
-    }
-    if (day.severityAverage !== null) {
-      return `Schweregrad ${day.severityAverage.toFixed(1)} / 10`;
-    }
-    return 'Keine Daten';
+    return `KRII ${roundPercentValue(day.value)}%`;
   };
 
   return (
     <div className="w-full glass-card overflow-hidden">
       <div className="px-6 pt-6 pb-3">
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">30 Tage</h2>
+        <h2 className="text-xl font-semibold text-[var(--text-primary)]">14-Tage Forecast</h2>
       </div>
 
       <div className="relative w-full px-3 pb-3">
@@ -111,10 +82,9 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data, events
           </div>
         )}
 
-        <div className="flex h-[100px] md:h-[120px] items-end gap-[2px] pt-8" role="img" aria-label="30-Tage-KRII-Uebersicht">
+        <div className="flex h-[120px] items-end gap-[2px] pt-8" role="img" aria-label="14-Tage-KRII-Forecast">
           {days.map((day) => {
-            const minHeight = day.hasForecast || day.hasMigraine ? 3 : 2;
-            const heightPercent = Math.max(day.value, minHeight);
+            const heightPercent = Math.max(day.value, 2);
 
             return (
               <button
@@ -129,16 +99,12 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data, events
                     className="w-full rounded-t-[2px] transition-opacity duration-150"
                     style={{
                       height: `${heightPercent}%`,
-                      backgroundColor: getBarColor(day),
+                      backgroundColor: getBarColor(day.value),
+                      border: day.isToday ? '1px solid rgba(255,255,255,0.9)' : '1px solid transparent',
+                      boxSizing: 'border-box',
                       opacity: selectedDayKey === null || selectedDayKey === day.key ? 1 : 0.72,
                     }}
                   />
-                  {day.hasMigraine && (
-                    <span
-                      className="absolute left-1/2 top-0 h-[5px] w-[5px] -translate-x-1/2 rounded-full"
-                      style={{ backgroundColor: '#f87171' }}
-                    />
-                  )}
                 </div>
               </button>
             );
@@ -146,15 +112,14 @@ export const RiskProfileChart: React.FC<RiskProfileChartProps> = ({ data, events
         </div>
 
         <div className="mt-2 flex gap-[2px]">
-          {days.map((day, index) => {
-            const label = index === days.length - 1 ? 'Heute' : index % 7 === 0 ? formatShortLabel(day.date) : '';
+          {days.map((day) => {
             return (
               <div
                 key={`${day.key}-label`}
                 className="flex-1 text-center text-[10px] leading-none"
                 style={{ color: 'rgba(255,255,255,0.4)' }}
               >
-                {label}
+                {day.label}
               </div>
             );
           })}

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { CorrelationTable } from '@/components/analysis/CorrelationTable';
 import { LagAnalysis } from '@/components/analysis/LagAnalysis';
 import { NeurodivergenceChart } from '@/components/analysis/NeurodivergenceChart';
-import { SeverityChart } from '@/components/analysis/SeverityChart';
 import { JournalList } from '@/components/journal/JournalList';
 import { getMigraineEvent, getMigraineEvents, supabase } from '@/lib/supabase';
 import {
@@ -559,22 +558,12 @@ export default function AnalysePage() {
       return {
         totalEvents: 0,
         averageSeverity: 0,
-        severityDistribution: [] as Array<{ severity: number; count: number }>,
         correlations: [] as CorrelationRow[],
         lagData: [] as LagPoint[],
         neurodivergence: [] as NeuroRow[],
         hasPersonalFactors: false,
       };
     }
-
-    const severityMap: Record<number, number> = {};
-    for (let severity = 1; severity <= 10; severity++) {
-      severityMap[severity] = timelineEvents.filter((event) => event.severity === severity).length;
-    }
-
-    const severityDistribution = Object.entries(severityMap)
-      .filter(([, count]) => count > 0)
-      .map(([severity, count]) => ({ severity: Number(severity), count }));
 
     const averageSeverity =
       timelineEvents.reduce((sum, event) => sum + event.severity, 0) / timelineEvents.length;
@@ -755,7 +744,6 @@ export default function AnalysePage() {
     return {
       totalEvents: timelineEvents.length,
       averageSeverity,
-      severityDistribution,
       correlations,
       lagData,
       neurodivergence,
@@ -1046,7 +1034,6 @@ export default function AnalysePage() {
           </>
         ) : (
           <>
-            {analysisStats.severityDistribution.length > 0 && <SeverityChart data={analysisStats.severityDistribution} />}
             <CorrelationTable data={analysisStats.correlations} />
             <LagAnalysis data={analysisStats.lagData} />
             {analysisStats.hasPersonalFactors && <NeurodivergenceChart data={analysisStats.neurodivergence} />}

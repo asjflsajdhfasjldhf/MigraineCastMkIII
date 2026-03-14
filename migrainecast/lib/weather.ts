@@ -75,7 +75,7 @@ export async function getCurrentWeather(
 }
 
 /**
- * Fetch hourly forecast (72 hours)
+ * Fetch hourly forecast (up to 16 days)
  */
 export async function getHourlyForecast(
   lat: number,
@@ -87,7 +87,7 @@ export async function getHourlyForecast(
       longitude: lon.toString(),
       hourly: 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl,uv_index',
       timezone: 'auto',
-      forecast_days: '3',
+      forecast_days: '16',
     });
 
     const response = await fetch(`${OPEN_METEO_API}?${params}`);
@@ -97,7 +97,7 @@ export async function getHourlyForecast(
 
     const forecasts: HourlyForecast[] = [];
     if (data.hourly) {
-      for (let i = 0; i < Math.min(72, data.hourly.time.length); i++) {
+      for (let i = 0; i < data.hourly.time.length; i++) {
         forecasts.push({
           time: data.hourly.time[i],
           temperature: data.hourly.temperature_2m[i] || 0,
