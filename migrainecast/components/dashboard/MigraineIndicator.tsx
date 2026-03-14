@@ -5,6 +5,7 @@ import React from 'react';
 import { EnvironmentSnapshot, HourlyForecast, KRIIFactor } from '@/types';
 import { calculateKRII } from '@/lib/krii';
 import { PERSONAL_DEFAULTS } from '@/lib/krii-config';
+import { roundPercentValue, toKriiPercent } from '@/lib/krii-display';
 
 interface MigraineIndicatorProps {
   kriiValue: number; // 0-1
@@ -21,12 +22,12 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   kriiFactors = [],
   yesterdayPeak,
 }) => {
-  const percentage = Math.round(kriiValue * 100);
+  const percentage = toKriiPercent(kriiValue);
 
-  const getKriiStrokeColor = (valuePct: number) => {
-    if (valuePct < 40) return 'rgba(255,255,255,0.7)';
-    if (valuePct <= 60) return 'rgba(251,146,60,0.9)';
-    return 'rgba(248,113,113,0.9)';
+  const getKriiBarColor = (valuePct: number) => {
+    if (valuePct < 40) return 'rgba(255,255,255,0.4)';
+    if (valuePct <= 60) return 'rgba(251,146,60,0.8)';
+    return 'rgba(248,113,113,0.8)';
   };
 
   const getRiskColor = (level: string) => {
@@ -77,7 +78,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       }
     }
 
-    return peakTime ? { percentage: Math.round(maxKrii * 100), time: peakTime } : null;
+    return peakTime ? { percentage: toKriiPercent(maxKrii), time: peakTime } : null;
   };
 
   // Find strongest factor
@@ -124,7 +125,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   const getYesterdayComparison = () => {
     if (yesterdayPeak === undefined || yesterdayPeak === null) return null;
     
-    const yesterdayPercent = Math.round(yesterdayPeak * 100);
+    const yesterdayPercent = toKriiPercent(yesterdayPeak);
     const diff = percentage - yesterdayPercent;
     
     if (diff > 0) {
@@ -140,7 +141,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
   const strongestFactor = getStrongestFactor();
   const yesterdayComparison = getYesterdayComparison();
 
-  const todaySparkline = (() => {
+  const todayBars = (() => {
     if (!hourlyData || hourlyData.length === 0) return null;
 
     const now = new Date();
@@ -227,7 +228,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       computedByTimestamp.set(hourDate.getTime(), krii.value * 100);
     }
 
-    const points = hourlyData
+    const hourlyPoints = hourlyData
       .filter((hour) => {
         const date = new Date(hour.time);
         return isSameDay(date);
@@ -243,58 +244,24 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       })
       .sort((a, b) => a.ts - b.ts);
 
-    if (points.length === 0) return null;
-
-    const width = 320;
-    const height = 48;
-
-    const dayStart = new Date(now);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(now);
-    dayEnd.setHours(23, 59, 59, 999);
-    const dayStartTs = dayStart.getTime();
-    const dayEndTs = dayEnd.getTime();
-    const totalMs = Math.max(1, dayEndTs - dayStartTs);
-
-    const toX = (ts: number) => ((ts - dayStartTs) / totalMs) * width;
-    const toY = (value: number) => height - (value / 100) * height;
-
-    const pointsWithCoords = points.map((point) => ({
-      ...point,
-      x: toX(point.ts),
-      y: toY(point.value),
-    }));
-
-    const segments = pointsWithCoords.slice(0, -1).map((point, index) => {
-      const next = pointsWithCoords[index + 1];
-      return {
-        x1: point.x,
-        y1: point.y,
-        x2: next.x,
-        y2: next.y,
-        color: getKriiStrokeColor((point.value + next.value) / 2),
-      };
+    const valuesByHour = new Map<number, number>();
+    hourlyPoints.forEach((point) => {
+      valuesByHour.set(point.hour, point.value);
     });
 
-    let currentPoint = points[0];
-    for (const point of points) {
-      if (point.ts <= now.getTime()) {
-        currentPoint = point;
-      } else {
-        break;
-      }
-    }
+    const bars = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      value: valuesByHour.get(hour) ?? 0,
+      isCurrent: hour === now.getHours(),
+      hasData: valuesByHour.has(hour),
+    }));
 
-    const peakPoint = points.reduce((peak, point) => (point.value > peak.value ? point : peak), points[0]);
+    const peakBar = bars.reduce((peak, bar) => (bar.value > peak.value ? bar : peak), bars[0]);
 
     return {
-      width,
-      height,
-      segments,
-      currentX: toX(currentPoint.ts),
-      currentY: toY(currentPoint.value),
-      peakValue: peakPoint.value,
-      peakHourLabel: `${String(peakPoint.hour).padStart(2, '0')}h`,
+      bars,
+      peakValue: roundPercentValue(peakBar.value),
+      peakHourLabel: `${String(peakBar.hour).padStart(2, '0')}h`,
     };
   })();
 
@@ -332,32 +299,27 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
         />
       </div>
 
-      {todaySparkline && (
+      {todayBars && (
         <div className="mb-4 -mx-6">
-          <div className="h-12 w-full relative">
-            <svg viewBox={`0 0 ${todaySparkline.width} ${todaySparkline.height}`} className="w-full h-full" aria-label="KRII Tagesverlauf">
-              {todaySparkline.segments.map((segment, index) => (
-                <line
-                  key={`${segment.x1}-${segment.y1}-${index}`}
-                  x1={segment.x1}
-                  y1={segment.y1}
-                  x2={segment.x2}
-                  y2={segment.y2}
-                  stroke={segment.color}
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              ))}
-              <circle
-                cx={todaySparkline.currentX}
-                cy={todaySparkline.currentY}
-                r="3"
-                fill="white"
-              />
-            </svg>
-            <p className="absolute top-0 right-0 text-[11px] text-[var(--text-secondary)]">
-              Peak {todaySparkline.peakValue}% {todaySparkline.peakHourLabel}
+          <div className="h-16 w-full relative">
+            <p className="absolute top-0 right-3 text-[11px] text-[var(--text-secondary)] z-10">
+              Peak {todayBars.peakValue}% {todayBars.peakHourLabel}
             </p>
+            <div className="flex h-full w-full items-end gap-px" aria-label="KRII Tagesverlauf">
+              {todayBars.bars.map((bar) => (
+                <div key={bar.hour} className="flex-1 h-full flex items-end">
+                  <div
+                    className="w-full rounded-t-[2px]"
+                    style={{
+                      height: bar.hasData ? `${Math.max(bar.value, 2)}%` : '0%',
+                      backgroundColor: bar.isCurrent ? 'rgba(255,255,255,0.7)' : getKriiBarColor(bar.value),
+                      border: bar.isCurrent ? '1px solid rgba(255,255,255,0.85)' : '1px solid transparent',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -375,7 +337,7 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
       {/* Strongest Factor */}
       {strongestFactor && (
         <p className="text-[12px] mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-          Stärkster Faktor: {strongestFactor.name} ({(strongestFactor.value * 100).toFixed(0)}%)
+          Stärkster Faktor: {strongestFactor.name} ({toKriiPercent(strongestFactor.value)}%)
         </p>
       )}
 

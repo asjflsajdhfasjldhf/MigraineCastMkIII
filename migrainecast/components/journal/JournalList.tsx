@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { MigraineEvent } from '@/types';
+import { toKriiPercent } from '@/lib/krii-display';
 
 interface JournalListProps {
   events: MigraineEvent[];
@@ -89,7 +90,7 @@ export const JournalList: React.FC<JournalListProps> = ({
               )}
               {event.krii_value !== null && (
                 <span className="text-[var(--text-secondary)]">
-                  KRII: {Math.round(event.krii_value * 100)}%
+                  KRII: {toKriiPercent(event.krii_value)}%
                 </span>
               )}
             </div>

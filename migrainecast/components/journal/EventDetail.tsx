@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { MigraineEvent, Medication, EnvironmentSnapshot, PersonalFactors } from '@/types';
+import { toKriiPercent } from '@/lib/krii-display';
 
 interface EventDetailProps {
   event: MigraineEvent;
@@ -65,7 +66,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
           {event.krii_value !== null && (
             <div>
               <p className="text-xs uppercase text-[var(--text-secondary)] mb-1">KRII</p>
-              <p className="text-[var(--text-primary)] mono-value">{Math.round(event.krii_value * 100)}%</p>
+              <p className="text-[var(--text-primary)] mono-value">{toKriiPercent(event.krii_value)}%</p>
             </div>
           )}
         </div>

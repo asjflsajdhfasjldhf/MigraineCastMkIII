@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { HourlyForecast } from '@/types';
+import { toKriiPercent } from '@/lib/krii-display';
 
 interface HourlyTableProps {
   data: HourlyForecast[];
@@ -60,7 +61,7 @@ export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
                   <div className="flex items-start justify-between">
                     <p className="text-sm text-[var(--text-secondary)]">{timeStr}</p>
                     <p className={`text-2xl font-semibold mono-value ${riskColor}`}>
-                      {Math.round(hour.krii_value * 100)}%
+                      {toKriiPercent(hour.krii_value)}%
                     </p>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-[var(--text-secondary)]">
@@ -127,7 +128,7 @@ export const HourlyTable: React.FC<HourlyTableProps> = ({ data }) => {
                     >
                       <td className="py-[6px] px-[8px] text-[var(--text-primary)]">{timeStr}</td>
                       <td className={`py-[6px] px-[8px] text-right font-semibold mono-value ${riskColor}`}>
-                        {Math.round(hour.krii_value * 100)}%
+                        {toKriiPercent(hour.krii_value)}%
                       </td>
                       <td className="py-[6px] px-[8px] text-right text-[var(--text-secondary)]">
                         {hour.temperature.toFixed(1)}

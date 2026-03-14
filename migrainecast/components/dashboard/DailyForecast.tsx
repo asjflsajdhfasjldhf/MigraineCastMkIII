@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { DailyForecast as DailyForecastType } from '@/types';
+import { toKriiPercent } from '@/lib/krii-display';
 
 interface DailyForecastProps {
   data: DailyForecastType[];
@@ -58,7 +59,7 @@ export const DailyForecast: React.FC<DailyForecastProps> = ({ data }) => {
                 <div className="mb-3">
                   <p className="text-xs text-[var(--text-secondary)] mb-1">KRII-Peak</p>
                   <p className="text-2xl font-bold mono-value" style={{ color: riskColor }}>
-                    {Math.round(day.krii_peak * 100)}%
+                    {toKriiPercent(day.krii_peak)}%
                   </p>
                   <p className="text-xs text-[var(--text-secondary)] mt-1">Stufe: {riskLabel(day.krii_level)}</p>
                 </div>
