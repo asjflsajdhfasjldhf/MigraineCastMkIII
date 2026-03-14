@@ -554,21 +554,6 @@ export default function AnalysePage() {
     );
   }, [visibleMonthDate]);
 
-  const monthlySeveritySeries = useMemo(() => {
-    const grouped = new Map<string, { sum: number; count: number }>();
-
-    timelineEvents.forEach((event) => {
-      const date = new Date(event.started_at);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const current = grouped.get(key) || { sum: 0, count: 0 };
-      grouped.set(key, { sum: current.sum + event.severity, count: current.count + 1 });
-    });
-
-    return Array.from(grouped.entries())
-      .map(([month, value]) => ({ month, avg: value.sum / value.count }))
-      .sort((a, b) => a.month.localeCompare(b.month));
-  }, [timelineEvents]);
-
   const analysisStats = useMemo(() => {
     if (timelineEvents.length === 0) {
       return {
@@ -1017,32 +1002,6 @@ export default function AnalysePage() {
                       )}
                     </div>
                   </div>
-
-                  {monthlySeveritySeries.length > 1 && (
-                    <div>
-                      <p className="text-sm text-[var(--text-secondary)] mb-2">
-                        Durchschnittlicher Schweregrad pro Monat
-                      </p>
-                      <svg viewBox="0 0 320 120" className="w-full h-32 rounded-lg border border-white/10 bg-white/[0.02]">
-                        {monthlySeveritySeries.map((point, index) => {
-                          const x = (index / (monthlySeveritySeries.length - 1)) * 300 + 10;
-                          const y = 110 - ((point.avg - 1) / 9) * 90;
-                          const next = monthlySeveritySeries[index + 1];
-                          if (!next) {
-                            return <circle key={point.month} cx={x} cy={y} r="3" fill="var(--accent-medium)" />;
-                          }
-                          const nextX = ((index + 1) / (monthlySeveritySeries.length - 1)) * 300 + 10;
-                          const nextY = 110 - ((next.avg - 1) / 9) * 90;
-                          return (
-                            <g key={point.month}>
-                              <line x1={x} y1={y} x2={nextX} y2={nextY} stroke="var(--accent-medium)" strokeWidth="2" />
-                              <circle cx={x} cy={y} r="3" fill="var(--accent-medium)" />
-                            </g>
-                          );
-                        })}
-                      </svg>
-                    </div>
-                  )}
 
                   {(neurodivAvg !== null || symptomStats.length > 0 || medicationStats.length > 0) && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

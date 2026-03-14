@@ -301,7 +301,8 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
 
       {todayBars && (
         <div className="mb-4 -mx-6">
-          <div className="h-16 w-full relative">
+          <div className="w-full relative">
+            <div className="h-16 w-full relative">
             <p className="absolute top-0 right-3 text-[11px] text-[var(--text-secondary)] z-10">
               Peak {todayBars.peakValue}% {todayBars.peakHourLabel}
             </p>
@@ -318,6 +319,14 @@ export const MigraineIndicator: React.FC<MigraineIndicatorProps> = ({
                     }}
                   />
                 </div>
+              ))}
+            </div>
+            </div>
+            <div className="mt-1 grid grid-cols-5 px-1 text-[9px] leading-none" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              {['00', '06', '12', '18', '24'].map((label) => (
+                <span key={label} className="text-center">
+                  {label}
+                </span>
               ))}
             </div>
           </div>
